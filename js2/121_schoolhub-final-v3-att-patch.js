@@ -105,12 +105,31 @@
     return b;
   }
 
+  /* ── กันไม่ให้ DOM ของการ์ดถูกสร้างใหม่ทับขณะที่นิ้วผู้ใช้กำลังแตะปุ่มอยู่
+     (สาเหตุที่กดปุ่ม มา/สาย/ขาด/ลา แล้วบางครั้งไม่ติด ต้องกด 2 ครั้ง) ── */
+  function trackTouchGuard(box){
+    if(!box || box.__shTouchGuardBound) return;
+    box.__shTouchGuardBound = true;
+    function release(){
+      box.__shTouchActive = false;
+      if(box.__shPendingHtml != null){
+        var pending = box.__shPendingHtml;
+        box.__shPendingHtml = null;
+        if(box.innerHTML !== pending) box.innerHTML = pending;
+      }
+    }
+    box.addEventListener('touchstart', function(){ box.__shTouchActive = true; }, {passive:true});
+    box.addEventListener('touchend', function(){ setTimeout(release, 350); }, {passive:true});
+    box.addEventListener('touchcancel', release, {passive:true});
+  }
+
   /* ── Build final mobile cards (v3: uses data-student-id from table) ── */
   function buildV3Cards(){
     if(!window.matchMedia||!window.matchMedia('(max-width:767px)').matches) return;
     var table=document.getElementById('course-summary-table');
     var box=ensureBox();
     if(!table||!box) return;
+    trackTouchGuard(box);
     var rows=[].slice.call(table.querySelectorAll('tbody tr'));
     if(!rows.length){ box.innerHTML=''; return; }
     var ths=[].slice.call(table.querySelectorAll('thead th'));
@@ -125,7 +144,7 @@
       else if(hc.indexOf('sh-star-col')>=0) starIdx=ci;
     }
 
-    box.innerHTML = rows.map(function(row, idx){
+    var __html = rows.map(function(row, idx){
       var cells=[].slice.call(row.children);
       var texts=cells.map(txt);
       var no=texts[0]||String(idx+1);
@@ -228,6 +247,11 @@
         +'<div class="summary-mobile-plans">'+planHtml+'</div>'
         +bonusStarHtml+totalHtml+'</div>';
     }).join('');
+
+    /* ถ้านิ้วผู้ใช้กำลังแตะอยู่ในการ์ด ให้รอสร้าง DOM ใหม่จนกว่าจะปล่อยนิ้ว
+       และเขียนทับ DOM เฉพาะตอนที่เนื้อหาเปลี่ยนจริง ๆ เท่านั้น ลดโอกาสที่ปุ่มจะถูกสร้างใหม่ทับขณะกด */
+    if(box.__shTouchActive){ box.__shPendingHtml = __html; return; }
+    if(box.innerHTML !== __html) box.innerHTML = __html;
   }
 
   // ให้โค้ดจุดอื่นที่เรียก window.buildMobileOverviewCards() ยังใช้งานได้ตามปกติ

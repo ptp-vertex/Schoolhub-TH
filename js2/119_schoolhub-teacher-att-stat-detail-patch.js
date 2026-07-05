@@ -1,5 +1,8 @@
 
 (function(){
+  /* ปิดแพตช์นี้ทั้งหมด: ถูกแทนที่โดย v3 (121) + v4 (123) ที่คลิกผ่าน capture phase
+     ทำงานก่อนแพตช์นี้เสมออยู่แล้ว การเปิดทิ้งไว้มีแต่กินเวลาโดยไม่มีผลจริง และเสี่ยงชนกับ modal เดียวกัน */
+  if (true) return;
   if (window.__teacherAttStatPatchLoaded) return;
   window.__teacherAttStatPatchLoaded = true;
 
