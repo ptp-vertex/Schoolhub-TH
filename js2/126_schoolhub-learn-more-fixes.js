@@ -61,10 +61,18 @@
         var busy = false;
         var lastContent = '';
 
+        /* expose ฟังก์ชัน reset cache เพื่อให้ 127 เรียกได้ */
+        window._shTourCardResetCache = function () { lastContent = ''; };
+
         window.schoolhubTour.renderSettingsCard = function () {
             if (busy) return;
             var host = document.getElementById('schoolhub-tour-settings-host');
-            if (host && host.innerHTML && host.innerHTML === lastContent) return;
+
+            /* ถ้า _shInstantJump พร้อมแล้ว ให้ force re-render เสมอ (ไม่ cache)
+               เพราะ event delegation ใน 127 ต้องการ host ที่ถูก re-attach ทุกครั้ง
+               ที่ settings เปิด เพื่อให้ jumpToStep ทำงานได้แทน listener เดิม */
+            var skipCache = !!(window._shInstantJump && typeof window._shInstantJump.jumpToStep === 'function');
+            if (!skipCache && host && host.innerHTML && host.innerHTML === lastContent) return;
 
             busy = true;
             try {
