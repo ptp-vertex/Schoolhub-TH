@@ -36,9 +36,14 @@
     return tb ? tb.children.length : 0;
   }
 
+  function isMobileViewport(){
+    return !!(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
+  }
+
   function needsRebuild(){
     if(!window.currentActiveCourseId) return false;
     if(!overviewTabVisible()) return false;
+    if(!isMobileViewport()) return false; // บนคอม/แท็บเล็ตกล่องการ์ดมือถือจะว่างโดยตั้งใจ ไม่ต้อง rebuild ซ้ำ
     var rows = tableRowCount();
     if(rows <= 0) return false; // ยังไม่มีข้อมูลจริง ๆ ไม่ต้องทำอะไร
     var box = cardsBox();
