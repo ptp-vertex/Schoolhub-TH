@@ -3506,6 +3506,7 @@ async function submitPlanRequest(planId){
                 showCustomAlert('โหลดแอดมินไม่ครบ', getFirebaseErrorText(error), true);
             }
         }
+        window.enterAdminMode = enterAdminMode;
 
 
         window.openUserProfileSettings = () => {
