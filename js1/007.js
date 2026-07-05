@@ -224,7 +224,9 @@
 
         async function loadSchoolHubDataAfterAuth(userForDir) {
             await loadStateFromDB();
+            shLoaderProgress(88, 'กำลังซิงค์ข้อมูลล่าสุด...');
             try { await startSchoolHubRealtimeListeners(); } catch(e) { console.warn('start realtime listeners failed:', e); }
+            shLoaderProgress(92, 'กำลังโหลดข้อมูลผู้ใช้...');
             try {
                 const u = userForDir || currentUser || (auth && auth.currentUser);
                 if (u && u.uid && u.uid !== 'admin-bypass') {
@@ -232,9 +234,14 @@
                     window.__currentUserDir = dirSnap.exists() ? (dirSnap.data() || {}) : {};
                 }
             } catch(e) { console.warn('load auth user dir failed:', e); }
+            shLoaderProgress(96, 'กำลังตรวจสอบแผนการใช้งาน...');
             try { await refreshCurrentUserPlanLock(); } catch(e) { console.warn('refresh plan after auth failed:', e); }
             try { await loadPublicPlans(); } catch(e) { console.warn('load plans after auth failed:', e); }
             updateGlobalViews();
+            // รอ frame ถัดไปให้แน่ใจว่าการ์ดรายชื่อ (course-grid) วาดเสร็จจริงบนหน้าจอ
+            // ก่อนที่จะปิดหน้าโหลดและเปิดหน้าแอปหลัก ป้องกันปัญหาเปิดครั้งแรกแล้วการ์ดว่าง/เลื่อนไม่ได้
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            shLoaderProgress(100, 'พร้อมแล้ว');
         }
 
         async function forceSchoolHubLogout(options = {}) {
@@ -272,15 +279,19 @@
                     displayName: saved.displayName || saved.email || 'ผู้ใช้งาน'
                 };
                 isAdmin = false;
-                document.getElementById('landing-view').classList.add('hidden');
-                document.getElementById('auth-view').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
+                // สำคัญ: ห้ามเปิดหน้าแอปหลัก (main-app) ก่อนข้อมูลโหลดเสร็จจริง
+                // มิฉะนั้นการ์ดรายชื่อ/รายวิชาจะว่างเปล่าและเลื่อนไม่ได้ในการเปิดครั้งแรก
+                // (state.courses/state.students ยังไม่มา) ต้องรอ loadSchoolHubDataAfterAuth
+                // เสร็จสมบูรณ์ก่อน แล้วค่อยสลับหน้าจอ เหมือนกับ flow ล็อกอินปกติด้านล่าง
                 const dName = currentUser.displayName || 'ผู้ใช้งาน';
                 document.getElementById('user-display-name').textContent = dName;
                 document.getElementById('user-display-email').textContent = getUserKey(currentUser);
                 document.getElementById('user-avatar-initial').textContent = dName.charAt(0).toUpperCase();
                 setAdminNavigationMode(false);
                 await loadSchoolHubDataAfterAuth(currentUser);
+                document.getElementById('landing-view').classList.add('hidden');
+                document.getElementById('auth-view').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
                 window.goToHome();
                 return true;
             } catch(e) {
@@ -2325,7 +2336,32 @@ async function submitPlanRequest(planId){
         function ensureSchoolHubPopupStacking(){
             ['custom-alert','custom-confirm'].forEach(id=>{const el=document.getElementById(id); if(el){el.style.zIndex='999999'; document.body.appendChild(el);}});
         }
-        function toggleLoader(show) { const loader = document.getElementById('global-loader'); if (loader) { loader.style.zIndex = '800000'; loader.style.display = show ? 'flex' : 'none'; } }
+        function toggleLoader(show) {
+            const loader = document.getElementById('global-loader');
+            if (loader) { loader.style.zIndex = '800000'; loader.style.display = show ? 'flex' : 'none'; }
+            if (show) { shLoaderProgress(0, 'กำลังเชื่อมต่อข้อมูล...'); }
+            else {
+                const wrap = document.getElementById('sh-loader-progress-wrap');
+                if (wrap) wrap.classList.remove('sh-loader-progress-active');
+            }
+        }
+
+        // แถบโหลดเปอร์เซ็นต์จริง: อัปเดตตามความคืบหน้าจริงของการโหลดข้อมูล ไม่ใช่ตัวเลขสมมติ
+        // ใช้ตอนรอ state.courses / state.students โหลดเสร็จก่อนเปิดหน้าแอปหลัก (เพื่อไม่ให้การ์ดรายชื่อว่างเปล่า)
+        function shLoaderProgress(percent, label) {
+            try {
+                const wrap = document.getElementById('sh-loader-progress-wrap');
+                const bar = document.getElementById('sh-loader-progress-bar');
+                const pct = document.getElementById('sh-loader-progress-pct');
+                const lbl = document.getElementById('sh-loader-progress-label');
+                const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+                if (wrap) wrap.classList.add('sh-loader-progress-active');
+                if (bar) bar.style.width = p + '%';
+                if (pct) pct.textContent = p + '%';
+                if (lbl && label) lbl.textContent = label;
+            } catch (e) {}
+        }
+        window.shLoaderProgress = shLoaderProgress;
         window.openModal = (id) => {
             const m = document.getElementById(id); if(!m) return;
             document.body.appendChild(m);
@@ -2969,7 +3005,9 @@ async function submitPlanRequest(planId){
         async function loadStateFromDB() {
             if (!currentUser || currentUser.uid === 'admin-bypass') { updateGlobalViews(); return; }
             try {
+                shLoaderProgress(15, 'กำลังดึงข้อมูลรายวิชา...');
                 const docSnap = await withTimeout(getDoc(doc(db, getPrivatePath(getUserKey(currentUser)), 'state')), 8000, 'loadState');
+                shLoaderProgress(55, 'กำลังเตรียมการ์ดรายชื่อ...');
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     state.courses = data.courses || []; state.students = data.students || [];
@@ -3008,8 +3046,10 @@ async function submitPlanRequest(planId){
                     showCustomAlert("ดึงข้อมูลออนไลน์ไม่ได้", msg, true);
                 }
             } finally {
+                shLoaderProgress(70, 'กำลังโหลดรายวิชาที่แชร์...');
                 await schoolhubLoadSharedCoursesForCurrentUser();
                 updateGlobalViews();
+                shLoaderProgress(85, 'การ์ดรายชื่อพร้อมแล้ว...');
             }
         }
 
