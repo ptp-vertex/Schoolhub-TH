@@ -6,15 +6,22 @@
    feature that used to live inside the star-group modal.
 
    New behaviour:
-   - Double-click the ⭐ดาว column header (in the course overview /
-     gradebook table) to open settings: choose to convert either the
-     TOTAL accumulated stars or a SPECIFIC week's stars, then choose
-     where the converted points go:
-       • an existing job (งาน) — capped to that job's max score
-       • a brand-new item — added as "+โบนัส" into the total score
-   - Click (single click) the ⭐ดาว header to see the conversion
-     history log, with a delete (×) button per entry that reverses
-     the points it added.
+   - Click the ⭐ดาว column header (in the course overview / gradebook
+     table) to open ONE combined popup ("จัดการแปลงดาวเป็นคะแนน") that
+     contains both:
+       1) Settings — choose to convert either the TOTAL accumulated
+          stars or a SPECIFIC week's stars, then choose where the
+          converted points go:
+            • an existing job (งาน) — capped to that job's max score
+            • a brand-new item — added as "+โบนัส" into the total score
+       2) History — a log of past conversions at the bottom of the
+          same popup, with a delete (×) button per entry that reverses
+          the points it added.
+     (Previously this used a click/double-click gesture split across
+     two separate popups, which meant the first click's popup covered
+     the header before the second click could land on it, so the
+     settings popup — and its convert button — was never reachable.
+     Now a single click always opens the full popup.)
    - Score cells in the gradebook that include converted points are
      shown in amber/yellow with a ⭐ marker and a tooltip explaining
      where the extra points came from.
@@ -77,7 +84,7 @@ function buildTargetOptions(cid){
   sel.innerHTML = html;
 }
 
-// ── Open / close settings modal ─────────────────────────────────
+// ── Open / close settings modal (settings + history live together) ─
 W.shStarConvertOpen = function(cid){
   cid = cid || getCid();
   if(!cid){ shAlert('กรุณาเลือกรายวิชา', 'กรุณาเปิดรายวิชาก่อนใช้งาน'); return; }
@@ -88,6 +95,7 @@ W.shStarConvertOpen = function(cid){
   eid('sh-starconv-week').value = 1;
   buildTargetOptions(cid);
   W.shStarConvertRefresh();
+  W.shStarConvertRenderHistory(cid);
   eid('sh-starconv-modal').classList.remove('hidden');
 };
 W.shStarConvertClose = function(){ eid('sh-starconv-modal').classList.add('hidden'); };
@@ -236,16 +244,17 @@ W.shStarConvGetCellInfo = function(cid, week, title, sid){
   return { amount: amount, tooltip: sources.join('\n') };
 };
 
-// ── History popup (single click on header) ───────────────────────
-W.shStarConvertHistory = function(cid){
+// ── History section, rendered inline at the bottom of the same modal ──
+W.shStarConvertRenderHistory = function(cid){
   cid = cid || getCid();
   if(!cid) return;
   initFields();
   var list = ((st().starConversions || {})[cid]) || [];
   var sorted = list.slice().sort(function(a,b){ return b.ts - a.ts; });
   var body = eid('sh-starconv-history-body');
+  if(!body) return;
   if(!sorted.length){
-    body.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:20px">ยังไม่มีประวัติการแปลงดาวเป็นคะแนน</div>';
+    body.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:16px">ยังไม่มีประวัติการแปลงดาวเป็นคะแนน</div>';
   } else {
     body.innerHTML = sorted.map(function(rec){
       var scopeLabel = rec.scope === 'week' ? ('ดาวสัปดาห์ที่ ' + rec.sourceWeek) : 'ดาวรวมทั้งหมด';
@@ -260,8 +269,10 @@ W.shStarConvertHistory = function(cid){
         '</div>';
     }).join('');
   }
-  eid('sh-starconv-history-modal').classList.remove('hidden');
 };
+// Backward-compat alias: any old markup that still calls the previous
+// standalone history popup now opens the combined modal instead.
+W.shStarConvertHistory = function(cid){ W.shStarConvertOpen(cid); };
 
 // ── Delete a conversion entry (reverses its effect) ───────────────
 W.shStarConvHistoryDelete = function(cid, convId){
@@ -298,7 +309,8 @@ W.shStarConvHistoryDelete = function(cid, convId){
     list.splice(idx, 1);
     Promise.resolve(dbSave()).then(function(){
       if(typeof W.renderCourseOverview === 'function') W.renderCourseOverview();
-      W.shStarConvertHistory(cid);
+      W.shStarConvertRenderHistory(cid);
+      if(eid('sh-starconv-cid') && eid('sh-starconv-cid').value === cid) W.shStarConvertRefresh();
       shAlert('ลบสำเร็จ', 'ลบรายการแปลงคะแนนและคืนคะแนนเรียบร้อยแล้ว');
     });
   });
