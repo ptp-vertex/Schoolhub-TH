@@ -1,9 +1,8 @@
 /*
-  PATCH: เมนูด้านซ้าย (เดสก์ท็อป) แบบย่อ/ขยายได้ + แก้ปัญหาเมนูหายตอนย่อจอเป็นแนวตั้งแล้วขยายกลับมาเต็มจอ
-  
-  พฤติกรรมใหม่:
+  PATCH: เมนูด้านซ้าย (เดสก์ท็อป) แบบย่อ/ขยายได้
+  พฤติกรรม:
   1. เมื่อรีเฟรชหน้าจอ: แสดงเมนูเต็ม 5 วินาที แล้วย่ออัตโนมัติ (ยกเว้นผู้ใช้กดเองก่อน)
-  2. เมื่อขยายจอกลับมาจากโหมดมือถือ: แสดงเมนูทันทีโดยไม่ต้องรีเฟรช
+  2. เมื่อขยายจอกลับมาจากโหมดมือถือ: แสดงเมนูทันทีโดยไม่ต้องรีเฟรช (แสดงตามสถานะล่าสุด)
 */
 (function () {
     if (window.__schoolhubSidebarCollapseInit) return;
@@ -13,13 +12,13 @@
     var userInteracted = false; 
 
     function isMobileWidth() {
-        return window.matchMedia && window.matchMedia('(max-width:767px)').matches;
+        return window.innerWidth < 768;
     }
 
     function getSidebar() { return document.getElementById('sh-sidebar'); }
 
     function getCollapsedPref() {
-        try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch (e) { return false; }
+        try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch (e) { return true; } // Default to collapsed
     }
     function setCollapsedPref(val) {
         try { localStorage.setItem(STORAGE_KEY, val ? '1' : '0'); } catch (e) {}
@@ -28,7 +27,17 @@
     function applyCollapsedState(collapsed) {
         var aside = getSidebar();
         if (!aside) return;
+        
+        // บังคับให้แสดงผล
+        aside.classList.remove('hidden');
+        aside.style.setProperty('display', 'flex', 'important');
+        aside.style.setProperty('visibility', 'visible', 'important');
+        aside.style.setProperty('opacity', '1', 'important');
+        aside.style.setProperty('pointer-events', 'auto', 'important');
+        aside.style.removeProperty('width');
+
         aside.classList.toggle('sh-sidebar-collapsed', !!collapsed);
+        
         var icon = document.getElementById('sh-sidebar-toggle-icon');
         if (icon) icon.classList.toggle('sh-flip', !!collapsed);
         var btn = document.getElementById('sh-sidebar-toggle-btn');
@@ -53,18 +62,14 @@
         var nowMode = isMobileWidth() ? 'mobile' : 'desktop';
         if (nowMode === lastMode) return;
         
-        var aside = getSidebar();
         if (nowMode === 'desktop') {
-            if (aside) {
-                aside.classList.remove('hidden');
-                aside.classList.add('md:flex');
-                aside.style.setProperty('display', 'flex', 'important');
-            }
+            // ขยายจอกลับมา: แสดงทันทีตามสถานะล่าสุด
             applyCollapsedState(getCollapsedPref());
         } else {
+            var aside = getSidebar();
             if (aside) {
                 aside.classList.add('hidden');
-                aside.style.removeProperty('display');
+                aside.style.setProperty('display', 'none', 'important');
             }
         }
         lastMode = nowMode;
@@ -72,17 +77,11 @@
 
     function initSidebarState() {
         if (isMobileWidth()) return;
-        var aside = getSidebar();
-        if (aside) {
-            aside.classList.remove('hidden');
-            aside.classList.add('md:flex');
-            aside.style.setProperty('display', 'flex', 'important');
-        }
         
-        // ตอนโหลดหน้าจอใหม่ (Refresh): แสดงเมนูเต็มก่อน
+        // 1. แสดงเมนูเต็มทันทีตอนโหลด (Refresh)
         applyCollapsedState(false);
         
-        // ตั้งเวลา 5 วินาทีเพื่อย่ออัตโนมัติ (เฉพาะตอนโหลดครั้งแรก)
+        // 2. ตั้งเวลา 5 วินาทีเพื่อย่ออัตโนมัติ
         setTimeout(function() {
             if (!userInteracted && !isMobileWidth()) {
                 applyCollapsedState(true);
@@ -91,12 +90,25 @@
         }, 5000);
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    // จัดการ Event Resize ให้ทำงานทันที
+    window.addEventListener('resize', handleModeTransition);
+    
+    // รันทันทีที่สคริปต์โหลด และรันซ้ำเมื่อ DOM พร้อม
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSidebarState);
+    } else {
         initSidebarState();
-        setTimeout(function(){ if(!userInteracted) initSidebarState(); }, 300);
-    });
-    window.addEventListener('resize', function () { setTimeout(handleModeTransition, 60); });
-    window.addEventListener('orientationchange', function () { setTimeout(handleModeTransition, 150); });
+    }
+    
+    // ป้องกันสคริปต์อื่นมาซ่อน
+    setInterval(function(){
+        if(!isMobileWidth()) {
+            var aside = getSidebar();
+            if(aside && (aside.classList.contains('hidden') || aside.style.display === 'none')) {
+                applyCollapsedState(getCollapsedPref());
+            }
+        }
+    }, 500);
 
     window.schoolhubApplySidebarCollapseNow = function () { initSidebarState(); };
 })();
