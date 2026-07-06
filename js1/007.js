@@ -4305,7 +4305,7 @@ async function submitPlanRequest(planId){
             });
             thead += `<th class="text-center bg-slate-800 text-white font-bold summary-total-col">รวม<br><span class="text-[9px] text-slate-300">${window.formatScoreDisplay(totalMax, 2)}</span></th>`;
             thead += `<th class="text-center bg-emerald-600 text-white font-bold sh-bonus-col" style="font-size:10px;padding:2px 1px;white-space:nowrap" title="คะแนนโบนัส — คลิกที่ช่องของนักเรียนเพื่อดูรายละเอียด, ดับเบิลคลิกที่หัวข้อนี้เพื่อตั้งค่าการรวมกับคะแนนรวม" ondblclick="shOvOpenBonusMergeSettings('${cid}')">+โบนัส</th>`;
-            thead += `<th class="text-center bg-amber-500 text-white font-bold sh-star-col" style="font-size:10px;padding:2px 1px;white-space:nowrap" title="ดาวกลุ่มสะสม (คลิกเพื่อดูรายละเอียด)">⭐ดาว</th>`;
+            thead += `<th class="text-center bg-amber-500 text-white font-bold sh-star-col" style="font-size:10px;padding:2px 1px;white-space:nowrap;cursor:pointer" title="ดาวกลุ่มสะสม — คลิกเพื่อดูประวัติการแปลงดาวเป็นคะแนน, ดับเบิลคลิกเพื่อแปลงดาวเป็นคะแนน" onclick="if(typeof shStarConvertHistory==='function') shStarConvertHistory('${cid}')" ondblclick="if(typeof shStarConvertOpen==='function') shStarConvertOpen('${cid}')">⭐ดาว</th>`;
             thead += `<th class="text-center bg-amber-50 text-amber-700 font-bold summary-grade-col">เกรด</th></tr></thead>`;
             table.innerHTML = thead;
 
@@ -4350,7 +4350,12 @@ async function submitPlanRequest(planId){
                             // มีการบันทึกแล้ว แต่ช่องของเด็กคนนี้เว้นว่างไว้ (ไม่ได้กรอก)
                             displayHtml = `<span class="summary-score-cell-content text-rose-600 font-black">X</span>`;
                         } else {
-                            displayHtml = `<span class="summary-score-cell-content text-slate-700">${window.formatScoreDisplay(rawScore, 2)}</span>`;
+                            const __convInfo = (typeof window.shStarConvGetCellInfo === 'function') ? window.shStarConvGetCellInfo(cid, p.week, p.title, s.id) : null;
+                            if (__convInfo && __convInfo.amount > 0) {
+                                displayHtml = `<span class="summary-score-cell-content" style="color:#b45309;font-weight:800" title="${escapeHTML(__convInfo.tooltip)}">${window.formatScoreDisplay(rawScore, 2)} ⭐</span>`;
+                            } else {
+                                displayHtml = `<span class="summary-score-cell-content text-slate-700">${window.formatScoreDisplay(rawScore, 2)}</span>`;
+                            }
                         }
                         tbody += `<td class="text-center font-mono summary-score-col">${displayHtml}</td>`;
                     }
