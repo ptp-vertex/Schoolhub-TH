@@ -1,7 +1,7 @@
 
 /* ── Attendance: ลา option ─────────────────────────────────────── */
-.schoolhub-mobile-att-btn.leave { color:#7c3aed !important; border-color:#ddd6fe !important; }
-.schoolhub-mobile-att-btn.leave.is-active { background:#ede9fe !important; border-color:#7c3aed !important; }
+.schoolhub-mobile-att-btn.leave { color:#d97706 !important; border-color:#fde68a !important; }
+.schoolhub-mobile-att-btn.leave.is-active { background:#fef3c7 !important; border-color:#f59e0b !important; }
 
 /* ── plan-list desktop buttons always clickable ─────────────────── */
 #plan-list td:last-child,
