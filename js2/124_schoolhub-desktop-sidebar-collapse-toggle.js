@@ -56,16 +56,36 @@
     function handleModeTransition() {
         var nowMode = isMobileWidth() ? 'mobile' : 'desktop';
         if (nowMode === lastMode) return;
+        
+        var aside = getSidebar();
         if (nowMode === 'desktop') {
-            // เพิ่งขยายจอกลับมาจากโหมดมือถือ: เปิดเป็นเมนูย่อ (ไอคอน) ก่อนเสมอ
+            // เพิ่งขยายจอกลับมาจากโหมดมือถือ: 
+            // 1. บังคับให้แสดง Sidebar ก่อน (เพราะโหมดมือถืออาจจะซ่อนไว้)
+            if (aside) {
+                aside.classList.remove('hidden');
+                aside.style.display = 'flex'; // บังคับให้เป็น flex สำหรับ desktop
+                aside.style.removeProperty('display'); // ปล่อยให้ CSS จัดการต่อ
+            }
+            // 2. ตั้งค่าเป็นเมนูย่อ (ไอคอน) เพื่อความปลอดภัยของพื้นที่หน้าจอ
             applyCollapsedState(true);
             setCollapsedPref(true);
+        } else {
+            // เข้าสู่โหมดมือถือ: ซ่อน Sidebar แบบปกติ
+            if (aside) {
+                aside.classList.add('hidden');
+                aside.style.removeProperty('display');
+            }
         }
         lastMode = nowMode;
     }
 
     function initSidebarState() {
         if (isMobileWidth()) return;
+        var aside = getSidebar();
+        if (aside) {
+            aside.classList.remove('hidden');
+            aside.classList.add('md:flex');
+        }
         applyCollapsedState(getCollapsedPref());
     }
 
