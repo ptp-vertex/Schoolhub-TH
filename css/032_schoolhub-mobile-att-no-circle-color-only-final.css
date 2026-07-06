@@ -23,6 +23,9 @@
     #attendance-list .schoolhub-mobile-att-btn.leave {
         background: #f8fafc !important;
         border-color: #e5e7eb !important;
+        touch-action: manipulation !important; /* ลบ 300ms delay บนมือถือ */
+        user-select: none !important; /* ป้องกันการคลุมดำเวลาคลิกรัวๆ */
+        -webkit-tap-highlight-color: transparent !important; /* ลบสีฟ้าเวลาแตะ */
     }
 
     #attendance-list .schoolhub-mobile-att-btn.present span {
