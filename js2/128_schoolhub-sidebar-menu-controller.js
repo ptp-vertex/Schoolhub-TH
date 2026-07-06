@@ -1,8 +1,8 @@
 
 /*
-  ULTIMATE SIDEBAR & MENU CONTROLLER (v14 - Absolute Isolation Method)
+  ULTIMATE SIDEBAR & MENU CONTROLLER (v14 - Relocation Method)
   - จัดการ Sidebar แนวนอน (10 วิย่ออัตโนมัติ)
-  - จัดการเมนูหลัก (Accordion): เมื่อเข้าหน้าวิชา ให้ซ่อน "ทุกอย่าง" ใน Sidebar ยกเว้นเมนูประจำวิชาและปุ่มออกระบบ
+  - จัดการเมนูหลัก (Accordion): ย้ายเมนูที่ฝังเพิ่มมาไปไว้ใต้กลุ่มเมนูหลัก เพื่อให้พับ/กางได้ 100%
 */
 (function () {
     if (window.__schoolhubSidebarUnifiedInitV14Enhanced) return;
@@ -16,10 +16,27 @@
     function isMobile() { return window.innerWidth < 768; }
     function getSidebar() { return document.getElementById('sh-sidebar'); }
 
-    // สร้าง Style Element สำหรับฉีด CSS แบบครอบจักรวาล
-    var accordionStyle = document.createElement('style');
-    accordionStyle.id = 'sh-accordion-absolute-style';
-    document.head.appendChild(accordionStyle);
+    // ฟังก์ชันย้ายเมนูที่ฝังเพิ่มมาไปไว้ในกลุ่มเมนูหลัก
+    function relocateEmbeddedMenus() {
+        var label = document.getElementById('nav-main-label');
+        if (!label) return;
+
+        // ค้นหาเมนูที่ถูกฝัง (ใช้ class ที่ระบบเมนูเสริมใช้)
+        var embeddedButtons = document.querySelectorAll('.shcm-user-nav-btn');
+        embeddedButtons.forEach(function(btn) {
+            // ถ้าปุ่มนี้ยังไม่ได้ถูกย้ายมาอยู่หลัง label (หรืออยู่ในตำแหน่งที่ถูกต้อง)
+            // เราจะย้ายมันมาต่อท้ายกลุ่มเมนูหลัก
+            if (btn.parentElement !== label.parentElement || btn.previousElementSibling === null) {
+                // หาจุดแทรก: แทรกก่อนเมนูประจำวิชา หรือแทรกต่อจากตัวสุดท้ายในกลุ่มเมนูหลัก
+                var courseMenu = document.getElementById('course-context-menu');
+                if (courseMenu) {
+                    label.parentElement.insertBefore(btn, courseMenu);
+                } else {
+                    label.parentElement.appendChild(btn);
+                }
+            }
+        });
+    }
 
     function applySidebarWidth(collapsed) {
         var aside = getSidebar();
@@ -33,61 +50,85 @@
         if (icon) icon.classList.toggle('sh-flip', !!collapsed);
     }
 
-    // ฟังก์ชันย่อ/กาง เมนูหลักแบบ Absolute (ซ่อนทุกอย่างที่ไม่เกี่ยวข้อง)
+    // ฟังก์ชันย่อ/กาง เมนูหลัก (รวมเมนูที่ถูกย้ายมาแล้ว)
     window.schoolhubSetMainMenuAccordionState = function(collapsed, fromUserInteraction = false) {
         if (fromUserInteraction) {
             userInteractedWithMainMenu = true;
         }
 
-        var sidebarNav = document.querySelector('#sh-sidebar nav');
-        if (!sidebarNav) return;
-
-        if (collapsed) {
-            // กฎเหล็ก: ซ่อนลูกทั้งหมดของ nav ยกเว้นตัวที่มี ID เป็น course-context-menu
-            // และซ่อนส่วนอื่นๆ ของ Sidebar เช่น Profile Area เพื่อให้เมนูวิชาขึ้นไปบนสุด
-            accordionStyle.innerHTML = `
-                #sh-sidebar nav > *:not(#course-context-menu) { display: none !important; }
-                #sh-sidebar > div:not(.p-4.border-t):not(nav) { display: none !important; }
-                #course-context-menu { display: block !important; margin-top: 0 !important; }
-                #sidebar-course-name { border-top: none !important; margin-top: 0 !important; padding-top: 0 !important; }
-            `;
-        } else {
-            accordionStyle.innerHTML = '';
-        }
-        
-        // อัปเดตหัวข้อเมนูหลัก (แสดงเฉพาะเมื่อไม่ได้พับแบบ Absolute หรือเพื่อใช้เป็นปุ่มกาง)
         var label = document.getElementById('nav-main-label');
-        if (label) {
-            label.style.cursor = 'pointer';
-            // ถ้าพับอยู่ ให้ label นี้แสดงผลออกมาตัวเดียวเพื่อให้กดกางได้ (ถ้าต้องการ)
-            // แต่ตามเงื่อนไขคือพับเพื่อให้เมนูวิชาขึ้นบนสุด ดังนั้นเราจะให้มันซ่อนไปเลยตามกฎข้างบน
-            label.innerHTML = `<div class="flex items-center justify-between w-full">
-                <span>เมนูหลัก</span>
-                <i class="fas ${collapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[10px] opacity-50"></i>
-            </div>`;
-            label.onclick = function(e) {
-                e.preventDefault();
-                var isCurrentlyCollapsed = accordionStyle.innerHTML !== '';
-                window.schoolhubSetMainMenuAccordionState(!isCurrentlyCollapsed, true);
-            };
+        if (!label) return;
+
+        // ย้ายเมนูก่อนจัดการสถานะ เพื่อให้ครอบคลุมตัวที่เพิ่งโหลดมา
+        relocateEmbeddedMenus();
+
+        // รายการ ID เมนูหลักพื้นฐาน
+        var baseMenuIds = ['nav-dashboard', 'nav-students', 'nav-import-excel', 'nav-user-plans', 'nav-settings'];
+        
+        // 1. จัดการเมนูพื้นฐาน
+        baseMenuIds.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) {
+                if (collapsed) el.style.setProperty('display', 'none', 'important');
+                else if (!el.classList.contains('hidden')) el.style.setProperty('display', 'flex', 'important');
+            }
+        });
+
+        // 2. จัดการเมนูที่ถูกฝัง (ที่ย้ายมาแล้ว)
+        document.querySelectorAll('.shcm-user-nav-btn').forEach(function(btn) {
+            if (collapsed) btn.style.setProperty('display', 'none', 'important');
+            else btn.style.setProperty('display', 'flex', 'important');
+        });
+        
+        // 3. อัปเดตหัวข้อเมนูหลัก
+        label.style.cursor = 'pointer';
+        label.style.setProperty('display', 'block', 'important');
+        label.innerHTML = `<div class="flex items-center justify-between w-full">
+            <span>เมนูหลัก</span>
+            <i class="fas ${collapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[10px] opacity-50"></i>
+        </div>`;
+        label.onclick = function(e) {
+            e.preventDefault();
+            var firstEl = document.getElementById(baseMenuIds[0]);
+            var isCurrentlyCollapsed = firstEl && firstEl.style.display === 'none';
+            window.schoolhubSetMainMenuAccordionState(!isCurrentlyCollapsed, true);
+        };
+
+        // 4. ปรับแต่งเมนูประจำวิชา
+        var courseMenu = document.getElementById('course-context-menu');
+        if (courseMenu) {
+            if (collapsed) {
+                courseMenu.style.setProperty('margin-top', '0.5rem', 'important');
+                var cLabel = document.getElementById('sidebar-course-name');
+                if (cLabel) {
+                    cLabel.style.setProperty('margin-top', '0.5rem', 'important');
+                    cLabel.style.setProperty('border-top', '1px solid #f1f5f9', 'important');
+                    cLabel.style.setProperty('padding-top', '1rem', 'important');
+                }
+            } else {
+                courseMenu.style.removeProperty('margin-top');
+                var cLabel = document.getElementById('sidebar-course-name');
+                if (cLabel) {
+                    cLabel.style.removeProperty('margin-top');
+                    cLabel.style.removeProperty('border-top');
+                    cLabel.style.removeProperty('padding-top');
+                }
+            }
         }
     };
 
-    // ตรวจสอบสถานะหน้าปัจจุบันผ่าน MutationObserver ของเมนูประจำวิชา
-    var courseObserver = new MutationObserver(function(mutations) {
+    // ใช้ MutationObserver ดักจับการเพิ่มเมนูใหม่ และสถานะเมนูวิชา
+    var observer = new MutationObserver(function(mutations) {
+        // ย้ายเมนูทันทีที่มีการเปลี่ยนแปลงใน DOM
+        relocateEmbeddedMenus();
+
         mutations.forEach(function(mutation) {
-            if (mutation.attributeName === 'class') {
+            if (mutation.attributeName === 'class' && mutation.target.id === 'course-context-menu') {
                 var courseMenu = document.getElementById('course-context-menu');
-                // ถ้าเมนูวิชา "ไม่ซ่อน" (คือเข้าหน้าวิชาแล้ว)
                 if (courseMenu && !courseMenu.classList.contains('hidden')) {
-                    if (!userInteractedWithMainMenu) {
-                        window.schoolhubSetMainMenuAccordionState(true);
-                    }
+                    if (!userInteractedWithMainMenu) window.schoolhubSetMainMenuAccordionState(true);
                 } else {
-                    // ถ้าเมนูวิชาซ่อนอยู่ (คืออยู่หน้าหลัก)
-                    if (!userInteractedWithMainMenu) {
-                        window.schoolhubSetMainMenuAccordionState(false);
-                    }
+                    if (!userInteractedWithMainMenu) window.schoolhubSetMainMenuAccordionState(false);
                 }
             }
         });
@@ -96,9 +137,13 @@
     function init() {
         if (isMobile()) return;
         
+        var sidebarNav = document.querySelector('#sh-sidebar nav');
+        if (sidebarNav) {
+            observer.observe(sidebarNav, { childList: true, subtree: true, attributes: true });
+        }
+
         var courseMenu = document.getElementById('course-context-menu');
         if (courseMenu) {
-            courseObserver.observe(courseMenu, { attributes: true });
             if (!courseMenu.classList.contains('hidden')) {
                 window.schoolhubSetMainMenuAccordionState(true);
             } else {
@@ -154,6 +199,7 @@
     });
 
     setInterval(function() {
+        relocateEmbeddedMenus();
         var aside = getSidebar();
         if (aside && !isMobile()) {
             aside.classList.remove('hidden');
