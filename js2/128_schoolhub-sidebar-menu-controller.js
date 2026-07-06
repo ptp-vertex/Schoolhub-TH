@@ -1,8 +1,9 @@
 
 /*
-  ULTIMATE SIDEBAR & MENU CONTROLLER (v14 - CSS Injection Method)
+  ULTIMATE SIDEBAR & MENU CONTROLLER (v14 - Enhanced)
   - จัดการ Sidebar แนวนอน (10 วิย่ออัตโนมัติ)
-  - จัดการเมนูหลัก (Accordion): ใช้ CSS Injection เพื่อพับทุกเมนูที่อยู่ระหว่างหัวข้อ "เมนูหลัก" และ "เมนูประจำวิชา"
+  - จัดการเมนูหลัก (Accordion): พับอัตโนมัติเมื่อเข้าหน้าวิชา และกางเมื่อออกหน้าหลัก
+  - ใช้ MutationObserver เพื่อดักจับการเปลี่ยนหน้าและบังคับย่อเมนูหลักให้หายขาด
 */
 (function () {
     if (window.__schoolhubSidebarUnifiedInitV14Enhanced) return;
@@ -15,72 +16,58 @@
 
     function isMobile() { return window.innerWidth < 768; }
     function getSidebar() { return document.getElementById('sh-sidebar'); }
-
-    // สร้าง Style Element สำหรับฉีด CSS
-    var accordionStyle = document.createElement('style');
-    accordionStyle.id = 'sh-accordion-injected-style';
-    document.head.appendChild(accordionStyle);
+    var mainMenuIds = ['nav-dashboard', 'nav-students', 'nav-import-excel', 'nav-user-plans', 'nav-settings'];
 
     function applySidebarWidth(collapsed) {
         var aside = getSidebar();
         if (!aside) return;
+
+        // Ensure sidebar is always visible on desktop
         if (!isMobile()) {
             aside.classList.remove('hidden');
             aside.style.setProperty('display', 'flex', 'important');
         }
+
         aside.classList.toggle('sh-sidebar-collapsed', !!collapsed);
         var icon = document.getElementById('sh-sidebar-toggle-icon');
         if (icon) icon.classList.toggle('sh-flip', !!collapsed);
     }
 
-    // ฟังก์ชันย่อ/กาง เมนูหลักโดยใช้ CSS Injection
+    // ฟังก์ชันย่อ/กาง เมนูหลัก
     window.schoolhubSetMainMenuAccordionState = function(collapsed, fromUserInteraction = false) {
         if (fromUserInteraction) {
             userInteractedWithMainMenu = true;
         }
 
-        var label = document.getElementById('nav-main-label');
-        if (!label) return;
-
-        // 1. ใช้ CSS Injection เพื่อพับทุกอย่างที่อยู่ระหว่างหัวข้อเมนูหลักและเมนูประจำวิชา
-        if (collapsed) {
-            // ซ่อนทุกอย่างที่อยู่หลัง nav-main-label จนถึงตัวที่เจอ course-context-menu
-            // เราใช้ CSS Selector :has() หรือวิธีไล่ Element เพื่อสร้างกฎ CSS
-            var selectors = [];
-            var current = label.nextElementSibling;
-            while (current && current.id !== 'course-context-menu' && current.id !== 'admin-menu-group') {
-                if (current.id) {
-                    selectors.push('#' + current.id);
-                } else if (current.classList.length > 0) {
-                    // ถ้าไม่มี ID ให้ใช้ Class หรือลำดับ (nth-child)
-                    // แต่เพื่อความชัวร์ เราจะใส่ attribute พิเศษให้มัน
-                    current.setAttribute('data-sh-accordion-item', 'true');
-                    selectors.push('[data-sh-accordion-item="true"]');
-                }
-                current = current.nextElementSibling;
+        mainMenuIds.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (collapsed) {
+                el.style.setProperty('display', 'none', 'important');
+            } else {
+                // Only show if it's not originally hidden by other logic (e.g., nav-import-excel)
+                if (id === 'nav-import-excel' && el.classList.contains('hidden')) return;
+                el.style.setProperty('display', 'flex', 'important');
             }
-            
-            if (selectors.length > 0) {
-                accordionStyle.innerHTML = selectors.join(', ') + ' { display: none !important; }';
-            }
-        } else {
-            accordionStyle.innerHTML = '';
-        }
+        });
         
-        // 2. อัปเดตหัวข้อเมนูหลัก
-        label.style.cursor = 'pointer';
-        label.style.setProperty('display', 'block', 'important');
-        label.innerHTML = `<div class="flex items-center justify-between w-full">
-            <span>เมนูหลัก</span>
-            <i class="fas ${collapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[10px] opacity-50"></i>
-        </div>`;
-        label.onclick = function(e) {
-            e.preventDefault();
-            var isCurrentlyCollapsed = accordionStyle.innerHTML !== '';
-            window.schoolhubSetMainMenuAccordionState(!isCurrentlyCollapsed, true);
-        };
+        var label = document.getElementById('nav-main-label');
+        if (label) {
+            label.style.cursor = 'pointer';
+            label.style.setProperty('display', 'block', 'important');
+            // Update chevron icon based on state
+            label.innerHTML = `<div class="flex items-center justify-between w-full">
+                <span>เมนูหลัก</span>
+                <i class="fas ${collapsed ? 'fa-chevron-down' : 'fa-chevron-up'} text-[10px] opacity-50"></i>
+            </div>`;
+            label.onclick = function(e) {
+                e.preventDefault();
+                var isCurrentlyCollapsed = document.getElementById(mainMenuIds[0]).style.display === 'none';
+                window.schoolhubSetMainMenuAccordionState(!isCurrentlyCollapsed, true);
+            };
+        }
 
-        // 3. ปรับแต่งเมนูประจำวิชา
+        // ปรับแต่งเมนูประจำวิชา (course-context-menu) ให้เลื่อนขึ้นเมื่อเมนูหลักพับ
         var courseMenu = document.getElementById('course-context-menu');
         if (courseMenu) {
             if (collapsed) {
@@ -103,26 +90,21 @@
         }
     };
 
-    // ใช้ MutationObserver ดักจับการเปลี่ยนแปลงของ Sidebar Nav เพื่ออัปเดตกฎ CSS เมื่อมีเมนูใหม่เพิ่มเข้ามา
-    var navObserver = new MutationObserver(function() {
-        var isCurrentlyCollapsed = accordionStyle.innerHTML !== '';
-        if (isCurrentlyCollapsed) {
-            window.schoolhubSetMainMenuAccordionState(true);
-        }
-    });
-
-    var courseObserver = new MutationObserver(function(mutations) {
+    // ใช้ MutationObserver ดักจับการแสดงผลเมนูวิชา
+    var observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.attributeName === 'class') {
                 var courseMenu = document.getElementById('course-context-menu');
                 if (courseMenu && !courseMenu.classList.contains('hidden')) {
-                    var isCurrentlyCollapsed = accordionStyle.innerHTML !== '';
-                    if (!isCurrentlyCollapsed && !userInteractedWithMainMenu) {
+                    // ถ้าเมนูวิชาโผล่มา และเมนูหลักยังไม่ย่อ -> ให้ย่อ
+                    var isMainMenuCollapsed = document.getElementById(mainMenuIds[0]).style.display === 'none';
+                    if (!isMainMenuCollapsed && !userInteractedWithMainMenu) {
                         window.schoolhubSetMainMenuAccordionState(true);
                     }
                 } else {
-                    var isCurrentlyCollapsed = accordionStyle.innerHTML !== '';
-                    if (isCurrentlyCollapsed && !userInteractedWithMainMenu) {
+                    // ถ้าเมนูวิชาหายไป -> ให้กางเมนูหลัก (เฉพาะถ้าผู้ใช้ไม่ได้ย่อเอง)
+                    var isMainMenuCollapsed = document.getElementById(mainMenuIds[0]).style.display === 'none';
+                    if (isMainMenuCollapsed && !userInteractedWithMainMenu) {
                         window.schoolhubSetMainMenuAccordionState(false);
                     }
                 }
@@ -133,14 +115,10 @@
     function init() {
         if (isMobile()) return;
         
-        var sidebarNav = document.querySelector('#sh-sidebar nav');
-        if (sidebarNav) {
-            navObserver.observe(sidebarNav, { childList: true });
-        }
-
         var courseMenu = document.getElementById('course-context-menu');
         if (courseMenu) {
-            courseObserver.observe(courseMenu, { attributes: true });
+            observer.observe(courseMenu, { attributes: true });
+            // เช็คครั้งแรกเมื่อโหลดหน้า
             if (!courseMenu.classList.contains('hidden')) {
                 window.schoolhubSetMainMenuAccordionState(true);
             } else {
@@ -148,9 +126,12 @@
             }
         }
 
-        applySidebarWidth(false);
-        localStorage.setItem(STORAGE_KEY, '0');
+        // Sidebar แนวนอน
+        // เมื่อโหลดหน้าเว็บ ให้แสดง Sidebar แบบเต็มเสมอ (ไม่สนค่าใน localStorage ตอนโหลดครั้งแรก)
+        applySidebarWidth(false); // Start expanded
+        localStorage.setItem(STORAGE_KEY, '0'); // Ensure localStorage reflects expanded state
 
+        // ตั้งเวลาสำหรับย่ออัตโนมัติ
         setTimeout(function() {
             if (!userInteractedWithSidebar && !isMobile()) {
                 applySidebarWidth(true);
@@ -160,7 +141,7 @@
     }
 
     window.toggleSchoolHubSidebar = function () {
-        userInteractedWithSidebar = true;
+        userInteractedWithSidebar = true; // ผู้ใช้โต้ตอบแล้ว
         var aside = getSidebar();
         if (!aside) return;
         var next = !aside.classList.contains('sh-sidebar-collapsed');
@@ -168,9 +149,11 @@
         localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
     };
 
+    // ป้องกันการทับซ้อนและเรียกใช้ฟังก์ชันเดิม
     var _oldEnter = window.enterCourse;
     window.enterCourse = function(id) {
         if (typeof _oldEnter === 'function') _oldEnter(id);
+        // รีเซ็ต userInteractedWithMainMenu เมื่อเข้าหน้าวิชา เพื่อให้ MutationObserver ทำงานได้
         userInteractedWithMainMenu = false;
         setTimeout(function() { window.schoolhubSetMainMenuAccordionState(true); }, 50);
     };
@@ -178,23 +161,28 @@
     var _oldHome = window.goToHome;
     window.goToHome = function() {
         if (typeof _oldHome === 'function') _oldHome();
+        // รีเซ็ต userInteractedWithMainMenu เมื่อกลับหน้าหลัก เพื่อให้ MutationObserver ทำงานได้
         userInteractedWithMainMenu = false;
         setTimeout(function() { window.schoolhubSetMainMenuAccordionState(false); }, 50);
     };
 
     init();
 
+    // เมื่อขยายหน้าจอจากมือถือกลับมาเป็นเดสก์ท็อป Sidebar ต้องแสดงผลทันทีโดยไม่ต้องรีเฟรช
     window.addEventListener('resize', function() {
         if (!isMobile()) {
+            // ถ้าเปลี่ยนจาก mobile เป็น desktop ให้แสดง sidebar แบบเต็มเสมอ
             applySidebarWidth(false);
             localStorage.setItem(STORAGE_KEY, '0');
-            userInteractedWithSidebar = false;
+            userInteractedWithSidebar = false; // รีเซ็ตสถานะการโต้ตอบ เพื่อให้ auto-collapse ทำงานได้อีกครั้ง
         } else {
+            // บนมือถือ ให้ซ่อน sidebar
             var aside = getSidebar();
             if (aside) aside.classList.add('hidden');
         }
     });
 
+    // ตรวจสอบและแสดง Sidebar ทุก 1 วินาที เพื่อความเสถียร (กรณีมี script อื่นมาซ่อน)
     setInterval(function() {
         var aside = getSidebar();
         if (aside && !isMobile()) {
