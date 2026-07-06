@@ -1,319 +1,194 @@
 
-/* ================================================================
-   SchoolHub Patch — Star → Score Conversion
-   ----------------------------------------------------------------
-   Replaces the old "แปลงดาวเป็นคะแนนโบนัส" (rank-based r1/r2/r3)
-   feature that used to live inside the star-group modal.
+(function(){
+  if (window.__schoolhubStarConversionRankingPatch) return;
+  window.__schoolhubStarConversionRankingPatch = true;
 
-   New behaviour:
-   - Click the ⭐ดาว column header (in the course overview / gradebook
-     table) to open ONE combined popup ("จัดการแปลงดาวเป็นคะแนน") that
-     contains both:
-       1) Settings — choose to convert either the TOTAL accumulated
-          stars or a SPECIFIC week's stars, then choose where the
-          converted points go:
-            • an existing job (งาน) — capped to that job's max score
-            • a brand-new item — added as "+โบนัส" into the total score
-       2) History — a log of past conversions at the bottom of the
-          same popup, with a delete (×) button per entry that reverses
-          the points it added.
-     (Previously this used a click/double-click gesture split across
-     two separate popups, which meant the first click's popup covered
-     the header before the second click could land on it, so the
-     settings popup — and its convert button — was never reachable.
-     Now a single click always opens the full popup.)
-   - Score cells in the gradebook that include converted points are
-     shown in amber/yellow with a ⭐ marker and a tooltip explaining
-     where the extra points came from.
-   ================================================================ */
-(function(W){
-'use strict';
+  function esc(v){ try { return window.escapeHTML ? window.escapeHTML(v) : String(v||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); } catch(e){ return String(v||''); } }
 
-function st(){ return W.state || {}; }
-function eid(id){ return document.getElementById(id); }
-function getCid(){ return W.currentActiveCourseId || null; }
-function getStudents(cid){ return typeof W.getCourseStudents === 'function' ? W.getCourseStudents(cid) : []; }
-function dbSave(){ return (typeof W.saveStateToDB === 'function') ? W.saveStateToDB() : Promise.resolve(); }
-function shAlert(title, msg){ if(typeof W.showCustomAlert === 'function') W.showCustomAlert(title, msg); else alert(title + ': ' + msg); }
-function shConfirm(title, msg, cb){ if(typeof W.showCustomConfirm === 'function') W.showCustomConfirm(title, msg, cb); else { if(confirm(title + '\n' + msg)) cb(); } }
-function ensureField(obj, key, def){ if(obj[key] == null) obj[key] = def; }
-function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function canEdit(cid, actionName){ return typeof W.schoolhubAssertCanEditCourse !== 'function' || W.schoolhubAssertCanEditCourse(cid, actionName); }
+  // 1. ซ่อมดาวและโบนัสที่หายไปในหน้า Overview
+  var oldRender = window.renderCourseOverview;
+  window.renderCourseOverview = function(){
+    if (typeof oldRender !== 'function') return;
+    var cid = window.currentActiveCourseId;
+    var res = oldRender.apply(this, arguments);
+    
+    var table = document.getElementById('course-summary-table');
+    if (!table || !cid || !window.state) return res;
 
-function initFields(){
-  var s = st();
-  if(!s.starConversions) s.starConversions = {};
-  W.state = s;
-}
-if(document.readyState !== 'loading') setTimeout(initFields, 1500);
-else document.addEventListener('DOMContentLoaded', function(){ setTimeout(initFields, 1500); });
+    // แทรก Header
+    var thead = table.querySelector('thead tr');
+    if (thead && !thead.querySelector('.sh-star-col')) {
+      var target = thead.querySelector('.summary-grade-col') || thead.querySelector('.summary-total-col');
+      if (target) {
+        var bonusTh = document.createElement('th');
+        bonusTh.className = 'text-center bg-rose-50 text-rose-700 font-bold sh-bonus-col border-r';
+        bonusTh.innerHTML = 'โบนัส';
+        thead.insertBefore(bonusTh, target);
 
-// ── Star totals for one student (mirrors the calc used elsewhere) ──
-function getStudentStars(cid, sid, scope, week){
-  var cd = ((st().starGroups || {})[cid]) || {};
-  var groups = (cd.groups || []).filter(function(g){ return (g.members || []).includes(sid); });
-  var weekStars = cd.weekStars || {};
-  if(scope === 'week'){
-    var data = weekStars['w' + week] || {};
-    var sum = 0;
-    groups.forEach(function(g){ sum += data[g.id] || 0; });
-    return sum;
-  }
-  var total = 0;
-  Object.keys(weekStars).forEach(function(wk){
-    var data2 = weekStars[wk] || {};
-    groups.forEach(function(g){ total += data2[g.id] || 0; });
-  });
-  return total;
-}
-
-function getScope(){
-  var r = document.querySelector('input[name="sh-starconv-scope"]:checked');
-  return r ? r.value : 'total';
-}
-
-function buildTargetOptions(cid){
-  var sel = eid('sh-starconv-target');
-  var plans = (((st().coursePlans || {})[cid]) || [])
-    .filter(function(p){ return Number(p.maxScore) > 0; })
-    .slice().sort(function(a,b){ return Number(a.week) - Number(b.week); });
-  var html = '<option value="__new__">+ สร้างรายการใหม่ (บวกเป็นโบนัส +คะแนนรวม)</option>';
-  html += plans.map(function(p){
-    return '<option value="' + esc(p.id) + '">สัปดาห์ ' + esc(p.week) + ' · ' + esc(p.title) + ' (เต็ม ' + esc(p.maxScore) + ')</option>';
-  }).join('');
-  sel.innerHTML = html;
-}
-
-// ── Open / close settings modal (settings + history live together) ─
-W.shStarConvertOpen = function(cid){
-  cid = cid || getCid();
-  if(!cid){ shAlert('กรุณาเลือกรายวิชา', 'กรุณาเปิดรายวิชาก่อนใช้งาน'); return; }
-  initFields();
-  eid('sh-starconv-cid').value = cid;
-  var totalRadio = document.querySelector('input[name="sh-starconv-scope"][value="total"]');
-  if(totalRadio) totalRadio.checked = true;
-  eid('sh-starconv-week').value = 1;
-  buildTargetOptions(cid);
-  W.shStarConvertRefresh();
-  W.shStarConvertRenderHistory(cid);
-  eid('sh-starconv-modal').classList.remove('hidden');
-};
-W.shStarConvertClose = function(){ eid('sh-starconv-modal').classList.add('hidden'); };
-
-// ── Refresh the student rows whenever scope / week / target changes ─
-W.shStarConvertRefresh = function(){
-  var cid = eid('sh-starconv-cid').value; if(!cid) return;
-  var scope = getScope();
-  var week = parseInt(eid('sh-starconv-week').value) || 1;
-  eid('sh-starconv-week').disabled = (scope !== 'week');
-
-  var targetVal = eid('sh-starconv-target').value;
-  var plan = null;
-  if(targetVal && targetVal !== '__new__'){
-    plan = (((st().coursePlans || {})[cid]) || []).find(function(p){ return p.id === targetVal; });
-  }
-
-  var maxInfo = eid('sh-starconv-maxinfo');
-  var capPerStudent = {};
-  if(plan){
-    maxInfo.style.display = 'block';
-    maxInfo.innerHTML = '<i class="fas fa-circle-info mr-1"></i>งาน "' + esc(plan.title) + '" (สัปดาห์ ' + esc(plan.week) + ') คะแนนเต็ม ' + esc(plan.maxScore) + ' คะแนน — คะแนนที่แปลงจะกรอกได้ไม่เกินคะแนนเต็มของงานนี้ (นับรวมคะแนนเดิมที่มีอยู่แล้ว)';
-    var scoreRow = (st().scores || []).find(function(sr){ return String(sr.courseId) === String(cid) && String(sr.week) === String(plan.week) && String(sr.title) === String(plan.title); });
-    getStudents(cid).forEach(function(s){
-      var existing = scoreRow && scoreRow.records ? scoreRow.records[s.id] : undefined;
-      var existingNum = (existing !== undefined && existing !== '' && !isNaN(Number(existing))) ? Number(existing) : 0;
-      capPerStudent[s.id] = Math.max(0, Number(plan.maxScore) - existingNum);
-    });
-  } else {
-    maxInfo.style.display = 'none';
-    maxInfo.innerHTML = '';
-  }
-
-  var students = getStudents(cid);
-  var rowsHtml = students.map(function(s){
-    var stars = getStudentStars(cid, s.id, scope, week);
-    var hasCap = capPerStudent.hasOwnProperty(s.id);
-    var cap = hasCap ? capPerStudent[s.id] : null;
-    var defaultVal = stars;
-    if(cap !== null && defaultVal > cap) defaultVal = cap;
-    if(defaultVal < 0) defaultVal = 0;
-    var capAttr = cap !== null ? (' max="' + cap + '"') : '';
-    var capGuard = cap !== null ? (' oninput="if(parseFloat(this.value)>' + cap + ') this.value=' + cap + ';"') : '';
-    return '<tr data-sid="' + esc(s.id) + '">' +
-      '<td style="padding:6px 8px;font-weight:600">' + esc(s.name || s.id) + '</td>' +
-      '<td style="text-align:center;padding:6px 8px;color:#d97706;font-weight:800">' + stars + ' ⭐</td>' +
-      '<td style="text-align:center;padding:6px 8px"><input type="number" min="0" step="0.5"' + capAttr + capGuard +
-        ' value="' + (defaultVal > 0 ? defaultVal : '') + '" class="sh-starconv-amt-input" data-sid="' + esc(s.id) + '" style="width:80px;text-align:center;border:1px solid #cbd5e1;border-radius:8px;padding:4px"></td>' +
-      '</tr>';
-  }).join('');
-  eid('sh-starconv-rows').innerHTML = rowsHtml || '<tr><td colspan="3" style="text-align:center;padding:16px;color:#94a3b8">ไม่มีนักเรียนในรายวิชานี้</td></tr>';
-};
-
-// ── Confirm conversion ───────────────────────────────────────────
-W.shStarConvertConfirm = function(){
-  var cid = eid('sh-starconv-cid').value; if(!cid) return;
-  if(!canEdit(cid, 'แปลงดาวเป็นคะแนน')) return;
-
-  var scope = getScope();
-  var week = parseInt(eid('sh-starconv-week').value) || 1;
-  var targetVal = eid('sh-starconv-target').value;
-  var isNew = (!targetVal || targetVal === '__new__');
-  var plan = null;
-  if(!isNew){
-    plan = (((st().coursePlans || {})[cid]) || []).find(function(p){ return p.id === targetVal; });
-    if(!plan){ shAlert('ไม่พบงานนี้', 'กรุณาเลือกงานปลายทางใหม่'); return; }
-  }
-
-  var entries = [];
-  var students = getStudents(cid);
-  document.querySelectorAll('#sh-starconv-rows .sh-starconv-amt-input').forEach(function(inp){
-    var sid = inp.dataset.sid;
-    var v = parseFloat(inp.value);
-    if(!isNaN(v) && v > 0){
-      var s = students.find(function(x){ return x.id === sid; });
-      entries.push({ sid: sid, name: s ? (s.name || sid) : sid, amount: v });
+        var starTh = document.createElement('th');
+        starTh.className = 'text-center bg-amber-50 text-amber-700 font-bold sh-star-col border-r cursor-pointer hover:bg-amber-100 transition';
+        starTh.onclick = function(e){ e.stopPropagation(); window.openGroupRankingPopup(); };
+        starTh.innerHTML = '<div class="flex flex-col items-center gap-1"><span>ดาว</span><button type="button" class="text-[10px] bg-white border border-amber-200 px-1 rounded shadow-sm text-amber-600 font-black"><i class="fas fa-trophy mr-1"></i>จัดอันดับ</button></div>';
+        thead.insertBefore(starTh, target);
+      }
     }
-  });
-  if(!entries.length){ shAlert('ไม่มีคะแนนที่จะแปลง', 'กรุณากรอกคะแนนที่ต้องการแปลงอย่างน้อย 1 คน'); return; }
 
-  var record = {
-    id: 'conv' + Date.now() + Math.floor(Math.random() * 1000),
-    ts: Date.now(),
-    scope: scope,
-    sourceWeek: scope === 'week' ? week : null,
-    target: isNew
-      ? { type: 'new', weekKeyUsed: 'w' + (scope === 'week' ? week : 0) }
-      : { type: 'job', planId: plan.id, week: plan.week, title: plan.title, maxScore: plan.maxScore },
-    entries: entries,
-    totalPoints: entries.reduce(function(a, e){ return a + e.amount; }, 0)
+    // แทรกข้อมูลใน Body
+    var overview = window.getOverviewStudents ? window.getOverviewStudents(cid) : {students:[]};
+    var courseStudents = overview.students;
+    var rows = table.querySelectorAll('tbody tr');
+    
+    var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
+    var starGroups = starCourseData.groups || [];
+    var weekStars = starCourseData.weekStars || {};
+    var bonusByCid = (state.bonusScores && state.bonusScores[cid]) || {};
+
+    rows.forEach(function(row, idx){
+      var st = courseStudents[idx];
+      if (!st || row.querySelector('.sh-star-col')) return;
+      
+      var target = row.querySelector('.summary-grade-col') || row.querySelector('.summary-total-col');
+      if (target) {
+        // คำนวณโบนัส
+        var totalBonus = 0;
+        Object.keys(bonusByCid).forEach(function(wk){
+          var val = bonusByCid[wk] && bonusByCid[wk][st.id];
+          if (val !== undefined && val !== '' && !isNaN(Number(val))) totalBonus += Number(val);
+        });
+
+        // คำนวณดาว
+        var totalStars = 0;
+        var studentGroups = starGroups.filter(function(g){ return (g.members||[]).indexOf(st.id) !== -1; });
+        Object.keys(weekStars).forEach(function(wk){
+          var weekData = weekStars[wk] || {};
+          studentGroups.forEach(function(g){ totalStars += (weekData[g.id] || 0); });
+        });
+
+        var bonusTd = document.createElement('td');
+        bonusTd.className = 'text-center font-bold text-rose-600 bg-rose-50/30 sh-bonus-col border-r';
+        bonusTd.innerHTML = totalBonus > 0 ? '+' + window.formatScoreDisplay(totalBonus, 2) : '-';
+        row.insertBefore(bonusTd, target);
+
+        var starTd = document.createElement('td');
+        starTd.className = 'text-center font-bold text-amber-600 bg-amber-50/30 sh-star-col border-r';
+        starTd.innerHTML = totalStars > 0 ? totalStars + ' ⭐' : '-';
+        row.insertBefore(starTd, target);
+      }
+    });
+    return res;
   };
 
-  var s = st();
-  if(isNew){
-    ensureField(s, 'bonusScores', {}); ensureField(s.bonusScores, cid, {});
-    var wk = record.target.weekKeyUsed;
-    if(!s.bonusScores[cid][wk]) s.bonusScores[cid][wk] = {};
-    entries.forEach(function(e){
-      var cur = s.bonusScores[cid][wk][e.sid];
-      s.bonusScores[cid][wk][e.sid] = (cur !== undefined && cur !== '' ? Number(cur) : 0) + e.amount;
-    });
-  } else {
-    ensureField(s, 'scores', []);
-    var scoreRow = s.scores.find(function(sr){ return String(sr.courseId) === String(cid) && String(sr.week) === String(plan.week) && String(sr.title) === String(plan.title); });
-    if(!scoreRow){
-      scoreRow = { id: 'auto' + Date.now(), courseId: cid, week: plan.week, title: plan.title, maxScore: plan.maxScore, records: {}, savedAt: new Date().toISOString() };
-      s.scores.push(scoreRow);
+  // 2. ระบบป็อปอัพจัดอันดับกลุ่ม
+  window.openGroupRankingPopup = function(){
+    var cid = window.currentActiveCourseId;
+    if (!cid) return;
+    
+    var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
+    var groups = starCourseData.groups || [];
+    if (groups.length === 0) {
+      if (window.showCustomAlert) window.showCustomAlert('ไม่พบกลุ่ม','กรุณาสร้างกลุ่มนักเรียนก่อนจัดอันดับ', true);
+      return;
     }
-    entries.forEach(function(e){
-      var cur = scoreRow.records[e.sid];
-      var curNum = (cur !== undefined && cur !== '' && !isNaN(Number(cur))) ? Number(cur) : 0;
-      var next = curNum + e.amount;
-      var cap = Number(plan.maxScore);
-      if(next > cap) next = cap;
-      scoreRow.records[e.sid] = next;
-    });
-    scoreRow.savedAt = new Date().toISOString();
-  }
 
-  ensureField(s, 'starConversions', {}); ensureField(s.starConversions, cid, []);
-  s.starConversions[cid].push(record);
-
-  Promise.resolve(dbSave()).then(function(){
-    W.shStarConvertClose();
-    if(typeof W.renderCourseOverview === 'function') W.renderCourseOverview();
-    shAlert('แปลงคะแนนสำเร็จ', 'แปลงดาวเป็นคะแนนให้ ' + entries.length + ' คน รวม ' + record.totalPoints + ' คะแนน' + (isNew ? ' (เพิ่มเป็นโบนัส)' : ' (เพิ่มในงาน "' + plan.title + '")'));
-  });
-};
-
-// ── Lookup used by renderCourseOverview to color converted cells ──
-W.shStarConvGetCellInfo = function(cid, week, title, sid){
-  var list = ((st().starConversions || {})[cid]) || [];
-  var amount = 0;
-  var sources = [];
-  list.forEach(function(rec){
-    if(rec.target && rec.target.type === 'job' && String(rec.target.week) === String(week) && String(rec.target.title) === String(title)){
-      var e = (rec.entries || []).find(function(x){ return x.sid === sid; });
-      if(e){
-        amount += e.amount;
-        var scopeLabel = rec.scope === 'week' ? ('สัปดาห์ที่ ' + rec.sourceWeek) : 'ดาวรวมทั้งหมด';
-        sources.push('+' + e.amount + ' คะแนน จากดาว (' + scopeLabel + ')');
-      }
+    var pop = document.getElementById('group-ranking-popup');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'group-ranking-popup';
+      pop.className = 'fixed inset-0 z-[999999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4';
+      document.body.appendChild(pop);
     }
-  });
-  if(!amount) return null;
-  return { amount: amount, tooltip: sources.join('\n') };
-};
-
-// ── History section, rendered inline at the bottom of the same modal ──
-W.shStarConvertRenderHistory = function(cid){
-  cid = cid || getCid();
-  if(!cid) return;
-  initFields();
-  var list = ((st().starConversions || {})[cid]) || [];
-  var sorted = list.slice().sort(function(a,b){ return b.ts - a.ts; });
-  var body = eid('sh-starconv-history-body');
-  if(!body) return;
-  if(!sorted.length){
-    body.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:16px">ยังไม่มีประวัติการแปลงดาวเป็นคะแนน</div>';
-  } else {
-    body.innerHTML = sorted.map(function(rec){
-      var scopeLabel = rec.scope === 'week' ? ('ดาวสัปดาห์ที่ ' + rec.sourceWeek) : 'ดาวรวมทั้งหมด';
-      var targetLabel = rec.target.type === 'new' ? 'รายการใหม่ (+โบนัส)' : ('งาน "' + esc(rec.target.title) + '" สัปดาห์ ' + esc(rec.target.week));
-      var dateStr = new Date(rec.ts).toLocaleString('th-TH');
-      return '<div class="sh-breakdown-row" style="flex-direction:column;align-items:stretch;gap:4px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' +
-        '<span class="sh-breakdown-label" style="font-weight:800">' + scopeLabel + ' → ' + targetLabel + '</span>' +
-        '<button type="button" onclick="shStarConvHistoryDelete(\'' + cid + '\',\'' + rec.id + '\')" title="ลบรายการนี้" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:8px;width:24px;height:24px;cursor:pointer;font-weight:800;line-height:1;flex-shrink:0">×</button>' +
-        '</div>' +
-        '<div style="font-size:11.5px;color:#94a3b8">' + dateStr + ' · รวม ' + rec.totalPoints + ' คะแนน · ' + rec.entries.length + ' คน</div>' +
-        '</div>';
+    
+    var groupRows = groups.map(function(g){
+      return '<div class="group-rank-row bg-slate-50 p-3 rounded-2xl border border-slate-200 flex items-center justify-between gap-4 mb-2">'+
+        '<div class="flex-1 min-w-0"><div class="font-black text-slate-800 truncate">'+esc(g.name)+'</div><div class="text-[10px] text-slate-500">'+(g.members||[]).length+' คน</div></div>'+
+        '<div class="flex items-center gap-2">'+
+          '<select data-group-id="'+g.id+'" class="group-rank-select bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-primary outline-none">'+
+            '<option value="0">เลือกอันดับ</option>'+
+            '<option value="1">🥇 ที่ 1</option>'+
+            '<option value="2">🥈 ที่ 2</option>'+
+            '<option value="3">🥉 ที่ 3</option>'+
+          '</select>'+
+        '</div>'+
+      '</div>';
     }).join('');
-  }
-};
-// Backward-compat alias: any old markup that still calls the previous
-// standalone history popup now opens the combined modal instead.
-W.shStarConvertHistory = function(cid){ W.shStarConvertOpen(cid); };
 
-// ── Delete a conversion entry (reverses its effect) ───────────────
-W.shStarConvHistoryDelete = function(cid, convId){
-  if(!canEdit(cid, 'ลบประวัติแปลงดาวเป็นคะแนน')) return;
-  shConfirm('ยืนยันการลบ', 'ต้องการลบรายการแปลงคะแนนนี้และคืนคะแนนที่แปลงไปใช่หรือไม่?', function(){
-    var s = st();
-    var list = (s.starConversions && s.starConversions[cid]) || [];
-    var idx = list.findIndex(function(r){ return r.id === convId; });
-    if(idx === -1) return;
-    var rec = list[idx];
+    pop.innerHTML = '<div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">'+
+      '<div class="p-6 border-b border-slate-100 flex items-center justify-between bg-indigo-600 text-white">'+
+        '<div><div class="font-black text-xl">จัดอันดับกลุ่ม</div><div class="text-xs opacity-80">เลือกอันดับและกำหนดคะแนนที่จะบวกให้</div></div>'+
+        '<button onclick="document.getElementById(\'group-ranking-popup\').classList.add(\'hidden\')" class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-full transition"><i class="fas fa-times"></i></button>'+
+      '</div>'+
+      '<div class="p-6 overflow-y-auto flex-1">'+
+        '<div class="grid grid-cols-3 gap-3 mb-6">'+
+          '<div class="bg-amber-50 p-3 rounded-2xl border border-amber-100 text-center">'+
+            '<div class="text-xs font-black text-amber-600 mb-1">ที่ 1 (คะแนน)</div>'+
+            '<input type="number" id="rank-score-1" class="w-full text-center bg-white border border-amber-200 rounded-lg py-1 font-bold" value="20">'+
+          '</div>'+
+          '<div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center">'+
+            '<div class="text-xs font-black text-slate-600 mb-1">ที่ 2 (คะแนน)</div>'+
+            '<input type="number" id="rank-score-2" class="w-full text-center bg-white border border-slate-200 rounded-lg py-1 font-bold" value="15">'+
+          '</div>'+
+          '<div class="bg-orange-50 p-3 rounded-2xl border border-orange-100 text-center">'+
+            '<div class="text-xs font-black text-orange-600 mb-1">ที่ 3 (คะแนน)</div>'+
+            '<input type="number" id="rank-score-3" class="w-full text-center bg-white border border-orange-200 rounded-lg py-1 font-bold" value="10">'+
+          '</div>'+
+        '</div>'+
+        '<div class="space-y-1">'+groupRows+'</div>'+
+      '</div>'+
+      '<div class="p-6 border-t border-slate-100 flex gap-3">'+
+        '<button onclick="document.getElementById(\'group-ranking-popup\').classList.add(\'hidden\')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition">ยกเลิก</button>'+
+        '<button onclick="window.saveGroupRanking()" class="flex-[2] py-3 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">บันทึกอันดับ</button>'+
+      '</div>'+
+    '</div>';
+    
+    pop.classList.remove('hidden');
+  };
 
-    if(rec.target.type === 'new'){
-      var wk = rec.target.weekKeyUsed;
-      if(s.bonusScores && s.bonusScores[cid] && s.bonusScores[cid][wk]){
-        rec.entries.forEach(function(e){
-          var cur = s.bonusScores[cid][wk][e.sid];
-          var curNum = (cur !== undefined && cur !== '' && !isNaN(Number(cur))) ? Number(cur) : 0;
-          var next = curNum - e.amount;
-          s.bonusScores[cid][wk][e.sid] = next > 0 ? next : '';
-        });
+  window.saveGroupRanking = async function(){
+    var cid = window.currentActiveCourseId;
+    if (!cid) return;
+
+    var s1 = parseFloat(document.getElementById('rank-score-1').value) || 0;
+    var s2 = parseFloat(document.getElementById('rank-score-2').value) || 0;
+    var s3 = parseFloat(document.getElementById('rank-score-3').value) || 0;
+    var scoreMap = { '1': s1, '2': s2, '3': s3 };
+
+    var selects = document.querySelectorAll('.group-rank-select');
+    var updates = [];
+    selects.forEach(function(sel){
+      var gid = sel.dataset.groupId;
+      var rank = sel.value;
+      if (rank !== '0') {
+        updates.push({ groupId: gid, rank: rank, score: scoreMap[rank] });
       }
-    } else {
-      var scoreRow = (s.scores || []).find(function(sr){ return String(sr.courseId) === String(cid) && String(sr.week) === String(rec.target.week) && String(sr.title) === String(rec.target.title); });
-      if(scoreRow && scoreRow.records){
-        rec.entries.forEach(function(e){
-          var cur = scoreRow.records[e.sid];
-          var curNum = (cur !== undefined && cur !== '' && !isNaN(Number(cur))) ? Number(cur) : 0;
-          var next = curNum - e.amount;
-          scoreRow.records[e.sid] = next > 0 ? next : 0;
-        });
-      }
+    });
+
+    if (updates.length === 0) {
+      if (window.showCustomAlert) window.showCustomAlert('ไม่มีข้อมูล','กรุณาเลือกอันดับอย่างน้อย 1 กลุ่ม', true);
+      return;
     }
 
-    list.splice(idx, 1);
-    Promise.resolve(dbSave()).then(function(){
-      if(typeof W.renderCourseOverview === 'function') W.renderCourseOverview();
-      W.shStarConvertRenderHistory(cid);
-      if(eid('sh-starconv-cid') && eid('sh-starconv-cid').value === cid) W.shStarConvertRefresh();
-      shAlert('ลบสำเร็จ', 'ลบรายการแปลงคะแนนและคืนคะแนนเรียบร้อยแล้ว');
-    });
-  });
-};
+    var week = '1';
+    var plans = (state.coursePlans && state.coursePlans[cid]) || [];
+    if (plans.length > 0) {
+      var sorted = plans.slice().sort((a,b)=>Number(b.week)-Number(a.week));
+      week = String(sorted[0].week);
+    }
 
-})(window);
+    if (!state.starGroups) state.starGroups = {};
+    if (!state.starGroups[cid]) state.starGroups[cid] = { groups: [], weekStars: {} };
+    if (!state.starGroups[cid].weekStars) state.starGroups[cid].weekStars = {};
+    if (!state.starGroups[cid].weekStars[week]) state.starGroups[cid].weekStars[week] = {};
+
+    updates.forEach(function(upd){
+      state.starGroups[cid].weekStars[week][upd.groupId] = (state.starGroups[cid].weekStars[week][upd.groupId] || 0) + upd.score;
+    });
+
+    if (typeof window.saveStateToDB === 'function') await window.saveStateToDB();
+    
+    document.getElementById('group-ranking-popup').classList.add('hidden');
+    if (window.showCustomAlert) window.showCustomAlert('สำเร็จ','บันทึกอันดับและบวกคะแนนดาวเรียบร้อยแล้ว');
+    if (typeof window.renderCourseOverview === 'function') window.renderCourseOverview();
+  };
+
+  setTimeout(function(){ if (typeof window.renderCourseOverview === 'function') window.renderCourseOverview(); }, 1000);
+})();
