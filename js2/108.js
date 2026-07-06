@@ -407,18 +407,33 @@ W.shStarSave=async function(){
 // (previously the button only appeared after saving attendance and
 // re-selecting the date; now it appears the instant "ลา" is picked)
 W.schoolhubOnAttRadioChange = function(sid, cid, date, val){
+  // 1. จัดการ UI ให้เปลี่ยนสถานะทันที (Instant UI Feedback)
+  const parentActions = document.querySelector(`input[name="att_${sid}"]`)?.closest('.schoolhub-mobile-att-actions');
+  if(parentActions){
+    parentActions.querySelectorAll('.schoolhub-mobile-att-btn').forEach(btn => {
+      btn.classList.remove('is-active');
+      const input = btn.querySelector('input');
+      if(input && input.value === val) {
+        btn.classList.add('is-active');
+        input.checked = true;
+      }
+    });
+  }
+
+  // 2. จัดการปุ่มเหตุผลการลา
   const wrap = document.getElementById('leave-btn-wrap-' + sid);
-  if(!wrap) return;
-  if(val === 'leave'){
-    const safeCid = String(cid).replace(/'/g,"\\'");
-    const safeDate = String(date).replace(/'/g,"\\'");
-    const safeSid = String(sid).replace(/'/g,"\\'");
-    const isMobileCardView = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
-    wrap.innerHTML = isMobileCardView
-      ? '<button type="button" onclick="openLeaveReasonView(\''+safeCid+'\',\''+safeDate+'\',\''+safeSid+'\')" style="font-size:11px;background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;border-radius:8px;padding:4px 10px;font-weight:700;width:100%;text-align:center;cursor:pointer;margin-top:4px"><i class="fas fa-align-left mr-1"></i>เหตุผลการลา</button>'
-      : '<button type="button" onclick="openLeaveReasonView(\''+safeCid+'\',\''+safeDate+'\',\''+safeSid+'\')" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg font-bold border border-purple-200 hover:bg-purple-200"><i class="fas fa-align-left mr-1"></i>เหตุผล</button>';
-  } else {
-    wrap.innerHTML = '';
+  if(wrap){
+    if(val === 'leave'){
+      const safeCid = String(cid).replace(/'/g,"\\'");
+      const safeDate = String(date).replace(/'/g,"\\'");
+      const safeSid = String(sid).replace(/'/g,"\\'");
+      const isMobileCardView = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+      wrap.innerHTML = isMobileCardView
+        ? '<button type="button" onclick="openLeaveReasonView(\''+safeCid+'\',\''+safeDate+'\',\''+safeSid+'\')" style="font-size:11px;background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd;border-radius:8px;padding:4px 10px;font-weight:700;width:100%;text-align:center;cursor:pointer;margin-top:4px"><i class="fas fa-align-left mr-1"></i>เหตุผลการลา</button>'
+        : '<button type="button" onclick="openLeaveReasonView(\''+safeCid+'\',\''+safeDate+'\',\''+safeSid+'\')" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-lg font-bold border border-purple-200 hover:bg-purple-200"><i class="fas fa-align-left mr-1"></i>เหตุผล</button>';
+    } else {
+      wrap.innerHTML = '';
+    }
   }
 };
 
