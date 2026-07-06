@@ -15,16 +15,16 @@
     if (!table || !cid || !window.state) return res;
 
     var thead = table.querySelector('thead tr');
-    if (thead && !thead.querySelector('.sh-star-col')) {
+    if (thead && !thead.querySelector('.sh-stargroup-col')) {
       var target = thead.querySelector('.summary-grade-col') || thead.querySelector('.summary-total-col');
       if (target) {
         var bonusTh = document.createElement('th');
-        bonusTh.className = 'text-center bg-rose-50 text-rose-700 font-bold sh-bonus-col border-r';
+        bonusTh.className = 'text-center bg-rose-50 text-rose-700 font-bold sh-bonusgroup-col border-r';
         bonusTh.innerHTML = 'โบนัส';
         thead.insertBefore(bonusTh, target);
 
         var starTh = document.createElement('th');
-        starTh.className = 'text-center bg-amber-50 text-amber-700 font-bold sh-star-col border-r cursor-pointer hover:bg-amber-100 transition select-none';
+        starTh.className = 'text-center bg-amber-50 text-amber-700 font-bold sh-stargroup-col border-r cursor-pointer hover:bg-amber-100 transition select-none';
         starTh.title = 'ดับเบิลคลิกเพื่อแปลงคะแนนดาวกลุ่ม';
         
         // ใช้ addEventListener แทน ondblclick เพื่อความแน่นอน
@@ -49,7 +49,7 @@
 
     rows.forEach(function(row, idx){
       var st = courseStudents[idx];
-      if (!st || row.querySelector('.sh-star-col')) return;
+      if (!st || row.querySelector('.sh-stargroup-col')) return;
       var target = row.querySelector('.summary-grade-col') || row.querySelector('.summary-total-col');
       if (target) {
         var totalBonus = 0;
@@ -70,12 +70,12 @@
         });
 
         var bonusTd = document.createElement('td');
-        bonusTd.className = 'text-center font-bold text-rose-600 bg-rose-50/30 sh-bonus-col border-r';
+        bonusTd.className = 'text-center font-bold text-rose-600 bg-rose-50/30 sh-bonusgroup-col border-r';
         bonusTd.innerHTML = totalBonus > 0 ? '+' + window.formatScoreDisplay(totalBonus, 2) : '-';
         row.insertBefore(bonusTd, target);
 
         var starTd = document.createElement('td');
-        starTd.className = 'text-center font-bold text-amber-600 bg-amber-50/30 sh-star-col border-r';
+        starTd.className = 'text-center font-bold text-amber-600 bg-amber-50/30 sh-stargroup-col border-r';
         starTd.innerHTML = totalStars > 0 ? totalStars + ' ⭐' : '-';
         row.insertBefore(starTd, target);
       }
