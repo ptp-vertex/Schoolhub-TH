@@ -22,7 +22,8 @@
           aside.style.setProperty('overflow','hidden','important');
           aside.style.setProperty('flex','0 0 0','important');
         }else{
-          // Desktop mode: Restore default flex behavior but don't force width to allow collapse script to work
+          // Desktop mode: Let 124_schoolhub-desktop-sidebar-collapse-toggle.js handle it
+          if (window.__schoolhubSidebarCollapseInit) return;
           aside.style.setProperty('display','flex','important');
           aside.style.setProperty('visibility','visible','important');
           aside.style.setProperty('opacity','1','important');
@@ -31,9 +32,9 @@
           aside.style.removeProperty('min-width');
           aside.style.removeProperty('max-width');
           aside.style.removeProperty('height');
-          aside.style.setProperty('overflow','visible','important'); // Changed from hidden to visible for profile dropdowns
+          aside.style.setProperty('overflow','visible','important');
           aside.style.setProperty('flex-direction','column','important');
-          aside.classList.remove('hidden'); // Ensure hidden class is removed
+          aside.classList.remove('hidden');
 
           var nav = aside.querySelector('nav');
           if(nav){
