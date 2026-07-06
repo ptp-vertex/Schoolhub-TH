@@ -5,17 +5,15 @@
 
   function esc(v){ try { return window.escapeHTML ? window.escapeHTML(v) : String(v||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); } catch(e){ return String(v||''); } }
 
-  // 1. ซ่อมดาวและโบนัสที่หายไปในหน้า Overview
+  // 1. ซ่อมดาวและโบนัสในหน้า Overview
   var oldRender = window.renderCourseOverview;
   window.renderCourseOverview = function(){
     if (typeof oldRender !== 'function') return;
     var cid = window.currentActiveCourseId;
     var res = oldRender.apply(this, arguments);
-    
     var table = document.getElementById('course-summary-table');
     if (!table || !cid || !window.state) return res;
 
-    // แทรก Header
     var thead = table.querySelector('thead tr');
     if (thead && !thead.querySelector('.sh-star-col')) {
       var target = thead.querySelector('.summary-grade-col') || thead.querySelector('.summary-total-col');
@@ -27,41 +25,40 @@
 
         var starTh = document.createElement('th');
         starTh.className = 'text-center bg-amber-50 text-amber-700 font-bold sh-star-col border-r cursor-pointer hover:bg-amber-100 transition';
-        starTh.onclick = function(e){ e.stopPropagation(); window.openGroupRankingPopup(); };
-        starTh.innerHTML = '<div class="flex flex-col items-center gap-1"><span>ดาว</span><button type="button" class="text-[10px] bg-white border border-amber-200 px-1 rounded shadow-sm text-amber-600 font-black"><i class="fas fa-trophy mr-1"></i>จัดอันดับ</button></div>';
+        starTh.onclick = function(e){ e.stopPropagation(); window.openStarConversionPopup(); };
+        starTh.innerHTML = '<div class="flex flex-col items-center gap-1"><span>ดาวกลุ่ม</span><button type="button" class="text-[10px] bg-white border border-amber-200 px-1 rounded shadow-sm text-amber-600 font-black"><i class="fas fa-calculator mr-1"></i>แปลงคะแนน</button></div>';
         thead.insertBefore(starTh, target);
       }
     }
 
-    // แทรกข้อมูลใน Body
     var overview = window.getOverviewStudents ? window.getOverviewStudents(cid) : {students:[]};
     var courseStudents = overview.students;
     var rows = table.querySelectorAll('tbody tr');
-    
     var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
-    var starGroups = starCourseData.groups || [];
-    var weekStars = starCourseData.weekStars || {};
+    var starSets = starCourseData.sets || [];
     var bonusByCid = (state.bonusScores && state.bonusScores[cid]) || {};
 
     rows.forEach(function(row, idx){
       var st = courseStudents[idx];
       if (!st || row.querySelector('.sh-star-col')) return;
-      
       var target = row.querySelector('.summary-grade-col') || row.querySelector('.summary-total-col');
       if (target) {
-        // คำนวณโบนัส
         var totalBonus = 0;
         Object.keys(bonusByCid).forEach(function(wk){
           var val = bonusByCid[wk] && bonusByCid[wk][st.id];
           if (val !== undefined && val !== '' && !isNaN(Number(val))) totalBonus += Number(val);
         });
 
-        // คำนวณดาว
+        // คำนวณดาวจากทุกเซต
         var totalStars = 0;
-        var studentGroups = starGroups.filter(function(g){ return (g.members||[]).indexOf(st.id) !== -1; });
-        Object.keys(weekStars).forEach(function(wk){
-          var weekData = weekStars[wk] || {};
-          studentGroups.forEach(function(g){ totalStars += (weekData[g.id] || 0); });
+        starSets.forEach(function(s){
+          var groups = s.groups || [];
+          var weekStars = s.weekStars || {};
+          var studentGroups = groups.filter(function(g){ return (g.members||[]).indexOf(st.id) !== -1; });
+          Object.keys(weekStars).forEach(function(wk){
+            var weekData = weekStars[wk] || {};
+            studentGroups.forEach(function(g){ totalStars += (weekData[g.id] || 0); });
+          });
         });
 
         var bonusTd = document.createElement('td');
@@ -78,117 +75,177 @@
     return res;
   };
 
-  // 2. ระบบป็อปอัพจัดอันดับกลุ่ม
-  window.openGroupRankingPopup = function(){
+  // 2. ป็อปอัพแปลงคะแนนดาวกลุ่ม
+  window.openStarConversionPopup = function(){
     var cid = window.currentActiveCourseId;
     if (!cid) return;
     
     var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
-    var groups = starCourseData.groups || [];
-    if (groups.length === 0) {
-      if (window.showCustomAlert) window.showCustomAlert('ไม่พบกลุ่ม','กรุณาสร้างกลุ่มนักเรียนก่อนจัดอันดับ', true);
+    var starSets = starCourseData.sets || [];
+    
+    // ถ้าไม่มีเซตเลย ให้สร้างเซตเริ่มต้นจากข้อมูลเก่า (ถ้ามี)
+    if (starSets.length === 0 && starCourseData.groups) {
+      starSets = [{ id: 'set_1', name: 'เซตที่ 1', groups: starCourseData.groups, weekStars: starCourseData.weekStars || {} }];
+      state.starGroups[cid].sets = starSets;
+    }
+
+    if (starSets.length === 0) {
+      if (window.showCustomAlert) window.showCustomAlert('ไม่พบกลุ่ม','กรุณาสร้างกลุ่มนักเรียนก่อนแปลงคะแนน', true);
       return;
     }
 
-    var pop = document.getElementById('group-ranking-popup');
+    var pop = document.getElementById('star-conversion-popup');
     if (!pop) {
       pop = document.createElement('div');
-      pop.id = 'group-ranking-popup';
+      pop.id = 'star-conversion-popup';
       pop.className = 'fixed inset-0 z-[999999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4';
       document.body.appendChild(pop);
     }
-    
-    var groupRows = groups.map(function(g){
-      return '<div class="group-rank-row bg-slate-50 p-3 rounded-2xl border border-slate-200 flex items-center justify-between gap-4 mb-2">'+
-        '<div class="flex-1 min-w-0"><div class="font-black text-slate-800 truncate">'+esc(g.name)+'</div><div class="text-[10px] text-slate-500">'+(g.members||[]).length+' คน</div></div>'+
-        '<div class="flex items-center gap-2">'+
-          '<select data-group-id="'+g.id+'" class="group-rank-select bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold focus:ring-2 focus:ring-primary outline-none">'+
-            '<option value="0">เลือกอันดับ</option>'+
-            '<option value="1">🥇 ที่ 1</option>'+
-            '<option value="2">🥈 ที่ 2</option>'+
-            '<option value="3">🥉 ที่ 3</option>'+
-          '</select>'+
-        '</div>'+
-      '</div>';
-    }).join('');
 
-    pop.innerHTML = '<div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">'+
-      '<div class="p-6 border-b border-slate-100 flex items-center justify-between bg-indigo-600 text-white">'+
-        '<div><div class="font-black text-xl">จัดอันดับกลุ่ม</div><div class="text-xs opacity-80">เลือกอันดับและกำหนดคะแนนที่จะบวกให้</div></div>'+
-        '<button onclick="document.getElementById(\'group-ranking-popup\').classList.add(\'hidden\')" class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-full transition"><i class="fas fa-times"></i></button>'+
-      '</div>'+
-      '<div class="p-6 overflow-y-auto flex-1">'+
-        '<div class="grid grid-cols-3 gap-3 mb-6">'+
-          '<div class="bg-amber-50 p-3 rounded-2xl border border-amber-100 text-center">'+
-            '<div class="text-xs font-black text-amber-600 mb-1">ที่ 1 (คะแนน)</div>'+
-            '<input type="number" id="rank-score-1" class="w-full text-center bg-white border border-amber-200 rounded-lg py-1 font-bold" value="20">'+
-          '</div>'+
-          '<div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-center">'+
-            '<div class="text-xs font-black text-slate-600 mb-1">ที่ 2 (คะแนน)</div>'+
-            '<input type="number" id="rank-score-2" class="w-full text-center bg-white border border-slate-200 rounded-lg py-1 font-bold" value="15">'+
-          '</div>'+
-          '<div class="bg-orange-50 p-3 rounded-2xl border border-orange-100 text-center">'+
-            '<div class="text-xs font-black text-orange-600 mb-1">ที่ 3 (คะแนน)</div>'+
-            '<input type="number" id="rank-score-3" class="w-full text-center bg-white border border-orange-200 rounded-lg py-1 font-bold" value="10">'+
-          '</div>'+
-        '</div>'+
-        '<div class="space-y-1">'+groupRows+'</div>'+
-      '</div>'+
-      '<div class="p-6 border-t border-slate-100 flex gap-3">'+
-        '<button onclick="document.getElementById(\'group-ranking-popup\').classList.add(\'hidden\')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition">ยกเลิก</button>'+
-        '<button onclick="window.saveGroupRanking()" class="flex-[2] py-3 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">บันทึกอันดับ</button>'+
-      '</div>'+
-    '</div>';
+    var setOptions = starSets.map((s, i) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+
+    pop.innerHTML = `
+      <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-amber-500 text-white">
+          <div><div class="font-black text-xl">แปลงคะแนนดาวกลุ่ม</div><div class="text-xs opacity-80">เฉลี่ยคะแนนตามลำดับดาวของกลุ่ม</div></div>
+          <button onclick="document.getElementById('star-conversion-popup').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-full transition"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 space-y-6">
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <label class="block text-xs font-black text-slate-500 mb-2 uppercase tracking-wider">เลือกเซตกลุ่ม</label>
+            <select id="conversion-set-id" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-amber-500 outline-none" onchange="window.updateConversionPreview()">
+              ${setOptions}
+            </select>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+              <label class="block text-xs font-black text-emerald-600 mb-2 uppercase tracking-wider">คะแนนสูงสุด (ที่ 1)</label>
+              <input type="number" id="conv-max-score" class="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2 font-bold text-center" value="20" oninput="window.updateConversionPreview()">
+            </div>
+            <div class="bg-rose-50 p-4 rounded-2xl border border-rose-100">
+              <label class="block text-xs font-black text-rose-600 mb-2 uppercase tracking-wider">คะแนนต่ำสุด (โหล)</label>
+              <input type="number" id="conv-min-score" class="w-full bg-white border border-rose-200 rounded-xl px-4 py-2 font-bold text-center" value="10" oninput="window.updateConversionPreview()">
+            </div>
+          </div>
+
+          <div id="conversion-preview-list" class="space-y-2">
+            <!-- พรีวิวจะขึ้นตรงนี้ -->
+          </div>
+        </div>
+        <div class="p-6 border-t border-slate-100 flex gap-3">
+          <button onclick="document.getElementById('star-conversion-popup').classList.add('hidden')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition">ยกเลิก</button>
+          <button onclick="window.applyStarConversion()" class="flex-[2] py-3 bg-amber-500 text-white font-black rounded-2xl hover:bg-amber-600 shadow-lg shadow-amber-200 transition">บันทึกคะแนนลงช่องโบนัส</button>
+        </div>
+      </div>
+    `;
     
     pop.classList.remove('hidden');
+    window.updateConversionPreview();
   };
 
-  window.saveGroupRanking = async function(){
+  window.updateConversionPreview = function(){
     var cid = window.currentActiveCourseId;
-    if (!cid) return;
+    var setId = document.getElementById('conversion-set-id').value;
+    var maxS = parseFloat(document.getElementById('conv-max-score').value) || 0;
+    var minS = parseFloat(document.getElementById('conv-min-score').value) || 0;
+    
+    var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
+    var starSets = starCourseData.sets || [];
+    var currentSet = starSets.find(s => s.id === setId);
+    if (!currentSet) return;
 
-    var s1 = parseFloat(document.getElementById('rank-score-1').value) || 0;
-    var s2 = parseFloat(document.getElementById('rank-score-2').value) || 0;
-    var s3 = parseFloat(document.getElementById('rank-score-3').value) || 0;
-    var scoreMap = { '1': s1, '2': s2, '3': s3 };
-
-    var selects = document.querySelectorAll('.group-rank-select');
-    var updates = [];
-    selects.forEach(function(sel){
-      var gid = sel.dataset.groupId;
-      var rank = sel.value;
-      if (rank !== '0') {
-        updates.push({ groupId: gid, rank: rank, score: scoreMap[rank] });
-      }
+    var groups = currentSet.groups || [];
+    var weekStars = currentSet.weekStars || {};
+    
+    // คำนวณดาวรวมของแต่ละกลุ่มในเซตนี้
+    var groupData = groups.map(g => {
+      var stars = 0;
+      Object.keys(weekStars).forEach(wk => { stars += (weekStars[wk][g.id] || 0); });
+      return { id: g.id, name: g.name, stars: stars };
     });
 
-    if (updates.length === 0) {
-      if (window.showCustomAlert) window.showCustomAlert('ไม่มีข้อมูล','กรุณาเลือกอันดับอย่างน้อย 1 กลุ่ม', true);
-      return;
-    }
+    // เรียงตามดาวมากไปน้อย
+    groupData.sort((a, b) => b.stars - a.stars);
 
-    var week = '1';
-    var plans = (state.coursePlans && state.coursePlans[cid]) || [];
-    if (plans.length > 0) {
-      var sorted = plans.slice().sort((a,b)=>Number(b.week)-Number(a.week));
-      week = String(sorted[0].week);
-    }
+    // หาอันดับ (Rank) โดยถ้าดาวเท่ากันให้อันดับเดียวกัน
+    var currentRank = 0;
+    var lastStars = -1;
+    groupData.forEach((g, i) => {
+      if (g.stars !== lastStars) {
+        currentRank = i + 1;
+        lastStars = g.stars;
+      }
+      g.rank = currentRank;
+    });
 
-    if (!state.starGroups) state.starGroups = {};
-    if (!state.starGroups[cid]) state.starGroups[cid] = { groups: [], weekStars: {} };
-    if (!state.starGroups[cid].weekStars) state.starGroups[cid].weekStars = {};
-    if (!state.starGroups[cid].weekStars[week]) state.starGroups[cid].weekStars[week] = {};
+    // คำนวณคะแนนเฉลี่ยตามลำดับ (ไม่ใช่ตามจำนวนดาว)
+    // สูตร: Score = Max - ((Rank - 1) * (Max - Min) / (TotalUniqueRanks - 1))
+    var uniqueRanks = Array.from(new Set(groupData.map(g => g.rank))).sort((a,b) => a-b);
+    var totalUnique = uniqueRanks.length;
 
-    updates.forEach(function(upd){
-      state.starGroups[cid].weekStars[week][upd.groupId] = (state.starGroups[cid].weekStars[week][upd.groupId] || 0) + upd.score;
+    groupData.forEach(g => {
+      if (totalUnique <= 1) {
+        g.scaledScore = maxS;
+      } else {
+        var rankIdx = uniqueRanks.indexOf(g.rank);
+        g.scaledScore = maxS - (rankIdx * (maxS - minS) / (totalUnique - 1));
+      }
+      g.scaledScore = Math.round(g.scaledScore * 100) / 100; // ทศนิยม 2 ตำแหน่ง
+    });
+
+    var previewHtml = `<div class="text-[10px] font-black text-slate-400 mb-2 uppercase">พรีวิวการแปลงคะแนน (เฉลี่ยตามลำดับกลุ่ม)</div>`;
+    previewHtml += groupData.map(g => `
+      <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 rounded-full text-[10px] font-black">${g.rank}</div>
+          <div class="min-w-0">
+            <div class="text-sm font-bold text-slate-700 truncate">${esc(g.name)}</div>
+            <div class="text-[10px] text-slate-400">${g.stars} ⭐</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-sm font-black text-emerald-600">${window.formatScoreDisplay(g.scaledScore, 2)}</div>
+          <div class="text-[9px] text-slate-400 uppercase font-bold">คะแนนโบนัส</div>
+        </div>
+      </div>
+    `).join('');
+
+    document.getElementById('conversion-preview-list').innerHTML = previewHtml;
+    window.__currentGroupData = groupData; // เก็บไว้ใช้ตอนบันทึก
+  };
+
+  window.applyStarConversion = async function(){
+    var cid = window.currentActiveCourseId;
+    if (!cid || !window.__currentGroupData) return;
+
+    var groupData = window.__currentGroupData;
+    var setId = document.getElementById('conversion-set-id').value;
+    var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
+    var currentSet = (starCourseData.sets || []).find(s => s.id === setId);
+    if (!currentSet) return;
+
+    // บันทึกลงใน bonusScores โดยใช้ "สัปดาห์ล่าสุด" หรือสร้างสัปดาห์ใหม่สำหรับคะแนนแปลง
+    var week = 'Bonus-Stars';
+    if (!state.bonusScores) state.bonusScores = {};
+    if (!state.bonusScores[cid]) state.bonusScores[cid] = {};
+    if (!state.bonusScores[cid][week]) state.bonusScores[cid][week] = {};
+
+    groupData.forEach(g => {
+      var groupObj = currentSet.groups.find(x => x.id === g.id);
+      if (groupObj && groupObj.members) {
+        groupObj.members.forEach(stId => {
+          state.bonusScores[cid][week][stId] = g.scaledScore;
+        });
+      }
     });
 
     if (typeof window.saveStateToDB === 'function') await window.saveStateToDB();
     
-    document.getElementById('group-ranking-popup').classList.add('hidden');
-    if (window.showCustomAlert) window.showCustomAlert('สำเร็จ','บันทึกอันดับและบวกคะแนนดาวเรียบร้อยแล้ว');
+    document.getElementById('star-conversion-popup').classList.add('hidden');
+    if (window.showCustomAlert) window.showCustomAlert('สำเร็จ','แปลงคะแนนและบันทึกโบนัสเรียบร้อยแล้ว');
     if (typeof window.renderCourseOverview === 'function') window.renderCourseOverview();
   };
 
-  setTimeout(function(){ if (typeof window.renderCourseOverview === 'function') window.renderCourseOverview(); }, 1000);
+  setTimeout(function(){ if (typeof window.renderCourseOverview === 'function') window.renderCourseOverview(); }, 1500);
 })();
