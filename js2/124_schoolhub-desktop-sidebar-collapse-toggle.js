@@ -3,6 +3,8 @@
   พฤติกรรม:
   1. เมื่อรีเฟรชหน้าจอ: แสดงเมนูเต็ม 10 วินาที แล้วย่ออัตโนมัติ (ยกเว้นผู้ใช้กดเองก่อน)
   2. เมื่อขยายจอกลับมาจากโหมดมือถือ: แสดงเมนูทันทีตามสถานะล่าสุด
+  3. เมื่อเข้าหน้าวิชา (enterCourse): ย่อเมนูอัตโนมัติ
+  4. เมื่อกลับหน้าหลัก (goToHome): ขยายเมนูเต็มอัตโนมัติ
 */
 (function () {
     if (window.__schoolhubSidebarCollapseInit) return;
@@ -27,14 +29,12 @@
     function forceShowSidebar() {
         var aside = getSidebar();
         if (!aside) return;
-        
-        // ล้างทุกอย่างที่อาจจะซ่อนเมนู
         aside.classList.remove('hidden');
         aside.style.setProperty('display', 'flex', 'important');
         aside.style.setProperty('visibility', 'visible', 'important');
         aside.style.setProperty('opacity', '1', 'important');
         aside.style.setProperty('pointer-events', 'auto', 'important');
-        aside.style.setProperty('width', '', ''); // ให้ CSS จัดการความกว้าง
+        aside.style.setProperty('width', '', '');
         aside.style.setProperty('min-width', '', '');
         aside.style.setProperty('max-width', '', '');
         aside.style.setProperty('height', '', '');
@@ -56,7 +56,6 @@
             var label = document.getElementById('sh-sidebar-toggle-label');
             if (label) label.textContent = collapsed ? 'ขยายเมนู' : 'ย่อเมนู';
         } else {
-            // โหมดมือถือ: ซ่อน Sidebar
             aside.classList.add('hidden');
             aside.style.setProperty('display', 'none', 'important');
         }
@@ -70,6 +69,14 @@
         var nextCollapsed = !aside.classList.contains('sh-sidebar-collapsed');
         applyCollapsedState(nextCollapsed);
         setCollapsedPref(nextCollapsed);
+    };
+
+    // ฟังก์ชันใหม่สำหรับจัดการการสลับหน้า
+    window.schoolhubSetSidebarState = function(collapsed, forceUserInteraction = false) {
+        if (isMobileWidth()) return;
+        if (forceUserInteraction) userInteracted = true;
+        applyCollapsedState(collapsed);
+        setCollapsedPref(collapsed);
     };
 
     var lastMode = isMobileWidth() ? 'mobile' : 'desktop';
@@ -105,14 +112,10 @@
         }, 10000);
     }
 
-    // ฟังเสียง Resize ตลอดเวลา
     window.addEventListener('resize', handleModeTransition);
-    
-    // รันทันทีและรันซ้ำเมื่อ DOM พร้อม
     initSidebarState();
     document.addEventListener('DOMContentLoaded', initSidebarState);
     
-    // ระบบตรวจสอบความปลอดภัย (Guard): บังคับแสดงผลถ้าอยู่ใน Desktop แล้วเมนูหาย
     setInterval(function(){
         if(!isMobileWidth()) {
             var aside = getSidebar();
@@ -123,4 +126,19 @@
     }, 1000);
 
     window.schoolhubApplySidebarCollapseNow = function () { initSidebarState(); };
+
+    // Hook เข้ากับฟังก์ชัน Navigation ของแอป
+    var originalEnterCourse = window.enterCourse;
+    window.enterCourse = function(id) {
+        if (typeof originalEnterCourse === 'function') originalEnterCourse(id);
+        // เมื่อเข้าหน้าวิชา -> ย่อเมนู
+        window.schoolhubSetSidebarState(true);
+    };
+
+    var originalGoToHome = window.goToHome;
+    window.goToHome = function() {
+        if (typeof originalGoToHome === 'function') originalGoToHome();
+        // เมื่อกลับหน้าหลัก -> ขยายเมนู
+        window.schoolhubSetSidebarState(false);
+    };
 })();
