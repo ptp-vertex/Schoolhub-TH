@@ -81,13 +81,13 @@
         // 1. แสดงเมนูเต็มทันทีตอนโหลด (Refresh)
         applyCollapsedState(false);
         
-        // 2. ตั้งเวลา 5 วินาทีเพื่อย่ออัตโนมัติ
+        // 2. ตั้งเวลา 10 วินาทีเพื่อย่ออัตโนมัติ
         setTimeout(function() {
             if (!userInteracted && !isMobileWidth()) {
                 applyCollapsedState(true);
                 setCollapsedPref(true);
             }
-        }, 5000);
+        }, 10000);
     }
 
     // จัดการ Event Resize ให้ทำงานทันที
