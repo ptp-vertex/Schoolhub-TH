@@ -73,6 +73,8 @@
     appendToBody(modal);
     modal.style.position = 'fixed';
     modal.style.zIndex = String(TOP_Z);
+    modal.style.display = ''; // ล้าง inline display:none ที่ closeCustomAlertToast() เคยตั้งไว้ตอนปิดครั้งก่อน ไม่งั้นจะเปิดครั้งถัดไปไม่ขึ้น
+    modal.removeAttribute('aria-hidden');
     box.style.zIndex = String(TOP_Z);
     modal.classList.remove('hidden');
 
