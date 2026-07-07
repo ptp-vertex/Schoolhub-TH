@@ -51,6 +51,13 @@
   transition: background .12s, color .12s; font-family: inherit; line-height: 1;
 }
 .shdd-week-item:hover { background: #eef2ff; color: #6366f1; }
+/* มีการตั้งแผนคะแนนไว้แล้ว (ยังไม่บันทึกคะแนน) → ฟ้าอ่อน */
+.shdd-week-item.shdd-week-planned { background: #dbeafe; color: #1d4ed8; }
+.shdd-week-item.shdd-week-planned:hover { background: #bfdbfe; color: #1e40af; }
+/* มีการตั้งแผนคะแนน และบันทึกคะแนนแล้ว → ฟ้าเข้มกว่า */
+.shdd-week-item.shdd-week-scored { background: #60a5fa; color: #fff; }
+.shdd-week-item.shdd-week-scored:hover { background: #3b82f6; color: #fff; }
+/* สัปดาห์ที่กำลังเลือกอยู่ (ตอนนี้) — สีม่วง ทับสถานะแผน/คะแนนด้านบนเสมอ */
 .shdd-week-item.shdd-selected { background: #6366f1; color: #fff; }
 .shdd-week-blank {
   grid-column: 1/-1; padding: 0.35rem 0.5rem; border-radius: 0.45rem;
