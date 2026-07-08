@@ -89,6 +89,21 @@
     return raw;
   }
 
+  // เช็คว่าแผนปัจจุบัน "หมดอายุ/ถึงรอบชำระเงินแล้ว" หรือไม่ โดยดูเฉพาะฟิลด์วันหมดอายุ/รอบบิลจริงๆ
+  // (ไม่ใช้ fallback วันที่เริ่มแผน/วันที่สร้างบัญชี เพราะวันนั้นเป็นอดีตอยู่แล้วเสมอ จะเข้าใจผิดว่าหมดอายุตลอด)
+  function isPlanExpired(plan, userDir){
+    plan = plan || {};
+    userDir = userDir || {};
+    if (plan.freeForever || plan.billingCycle === 'forever') return false;
+    if (!plan.id || plan.id === 'none' || plan.id === 'pending') return false;
+    var now = Date.now();
+    var expiresMs = toMillis(userDir.planExpiresAt);
+    if (expiresMs && expiresMs <= now) return true;
+    var nextBillingMs = toMillis(userDir.planNextBillingAt || userDir.planNextBillingDate);
+    if (nextBillingMs && nextBillingMs <= now) return true;
+    return false;
+  }
+
   window.renderCurrentPlanCardHTML = function(plan, userDir){
     plan = plan || {};
     userDir = userDir || {};
@@ -96,14 +111,27 @@
     var priceText = getPriceText(plan, userDir);
     var nextDate = getNextDate(userDir);
     var courseLimit = getCourseLimit(plan, userDir);
+    var expired = isPlanExpired(plan, userDir);
+    var planId = plan.id || userDir.planId || '';
+
+    var expiredBadge = expired
+      ? '<div class="schoolhub-current-plan-expired-badge"><i class="fas fa-triangle-exclamation"></i> หมดอายุแล้ว</div>'
+      : '';
+
+    // ปุ่มต่ออายุแบบง่ายๆ ตรงกล่องแผนปัจจุบันด้านบนเลย ไม่ต้องเลื่อนลงไปเลือกด้านล่าง
+    var renewBtn = expired
+      ? '<button type="button" class="schoolhub-current-plan-renew-btn" onclick="if(typeof requestSubscriptionPlan===\'function\'){ requestSubscriptionPlan(' + JSON.stringify(String(planId)) + '); } else if (typeof window.openModal===\'function\'){ window.openModal(\'plan-modal\'); }"><i class="fas fa-rotate mr-1"></i> ต่ออายุเลย</button>'
+      : '';
+
     return '' +
-      '<div class="schoolhub-current-plan-card" data-schoolhub-current-plan-unified="1">' +
+      '<div class="schoolhub-current-plan-card' + (expired ? ' schoolhub-current-plan-card--expired' : '') + '" data-schoolhub-current-plan-unified="1">' +
         '<div class="schoolhub-current-plan-info">' +
           '<div class="schoolhub-current-plan-label" data-i18n="currentPlan">' + esc(window.t ? window.t('currentPlan') : 'แผนปัจจุบัน') + '</div>' +
-          '<div class="schoolhub-current-plan-name">' + esc(planName) + '</div>' +
+          '<div class="schoolhub-current-plan-name">' + esc(planName) + expiredBadge + '</div>' +
           '<div class="schoolhub-current-plan-price">' + esc(priceText) + '</div>' +
           '<div class="schoolhub-current-plan-meta"><span data-i18n="nextBillingStart">' + esc(window.t ? window.t('nextBillingStart') : 'เริ่มเดือนถัดไป') + '</span>: ' + esc(formatThaiDateTime(nextDate)) + '</div>' +
           '<div class="schoolhub-current-plan-meta"><span data-i18n="courseLimit">' + esc(window.t ? window.t('courseLimit') : 'เพิ่มรายวิชาได้') + '</span>: ' + esc(courseLimit) + ' <span data-i18n="courseUnit">' + esc(window.t ? window.t('courseUnit') : 'วิชา') + '</span></div>' +
+          renewBtn +
         '</div>' +
         '<div class="schoolhub-current-plan-icon"><i class="fa-solid fa-id-card fas fa-id-card"></i></div>' +
       '</div>';
