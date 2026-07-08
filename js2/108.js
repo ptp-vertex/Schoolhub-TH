@@ -262,6 +262,10 @@ function starCD(cid){
 W.openStarGroupModal = function(){
   const cid=getCid();
   if(!cid){ shAlert('กรุณาเลือกรายวิชา','กรุณาเปิดรายวิชาก่อนใช้งาน'); return; }
+  if(typeof window.schoolhubPlanAllows === 'function' && !window.schoolhubPlanAllows('allowStars')) {
+      if(typeof window.showCustomAlert === 'function') window.showCustomAlert('ไม่มีสิทธิ์ใช้งาน','แผนปัจจุบันไม่รองรับระบบดาว กรุณาอัปเกรดแผน', true);
+      return;
+  }
   starCD(cid);
   eid('sh-star-week').value=1;
   shStarRender();

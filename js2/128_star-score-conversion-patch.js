@@ -124,6 +124,10 @@
       if (window.showCustomAlert) window.showCustomAlert('ไม่พบวิชาที่เลือก','กรุณาเปิดวิชาก่อนใช้งานฟีเจอร์นี้', true);
       return;
     }
+    if(typeof window.schoolhubPlanAllows === 'function' && !window.schoolhubPlanAllows('allowStars')) {
+      if(typeof window.showCustomAlert === 'function') window.showCustomAlert('ไม่มีสิทธิ์ใช้งาน','แผนปัจจุบันไม่รองรับระบบดาว กรุณาอัปเกรดแผน', true);
+      return;
+    }
 
     var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
     var starSets = starCourseData.sets || [];
