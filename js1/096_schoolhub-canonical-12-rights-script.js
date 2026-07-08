@@ -474,6 +474,8 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
     if(/openShareStudentModal|studentShare|shareStudent|แชร์ให้นักเรียน|share-student/i.test(s)) return 'studentShare';
     if(/openPlanModalForCurrentCourse|schoolhubOpenPlanModalSafe|planScores|planScore|แผนคะแนน|แผนเก็บคะแนน|plan-score/i.test(s)) return 'planScores';
     if(/openGradeCriteria|gradeCriteria|เกณฑ์เกรด|grade/i.test(s)) return 'gradeCriteria';
+    if(/openStarGroupModal|openStarConversionPopup|starGroup|StarConversion|ระบบดาว|แปลงดาวเป็นคะแนน/i.test(s)) return 'stars';
+    if(/openBonusScoreModal|BonusScore|คะแนนโบนัส|บันทึกคะแนนโบนัส/i.test(s)) return 'bonus';
     if(/switchCourseTab\(['"]?scores['"]?\)|data-tab["': ]+scores|\bscores\b|\bscore\b|บันทึกคะแนน|^\s*คะแนน\s*$/i.test(s)) return 'scores';
     if(/export|Export|Excel|เอ็ก|ส่งออก|โหลดตาราง/i.test(s)) return 'export';
     if(/CourseTeachers|จัดการครูในรายวิชา|เพิ่มครู|ครูผู้สอนร่วม|team/i.test(s) || el.id === 'course-teachers-manage-btn') return 'team';
