@@ -139,9 +139,22 @@ W.openStarGroupModal = function(){
       return;
   }
   starCD(cid);
-  // ใช้ฟังก์ชัน initStaticDropdowns เพื่อสร้างตัวเลือกสัปดาห์เหมือนระบบจัดการแผน
-  if(typeof window.initStaticDropdowns === 'function') window.initStaticDropdowns();
-  eid('sh-star-week').value=1;
+  // สร้างตัวเลือกสัปดาห์แบบบังคับ (Force) เพื่อให้ Enhancer อัปเดต UI ได้ถูกต้อง
+  const weekSel=eid('sh-star-week');
+  if(weekSel){
+    // ลบตัวเลือกเดิมออกเพื่อบังคับให้สร้างใหม่
+    weekSel.innerHTML='';
+    weekSel.dataset.schoolhubFinalOptionsHtml='';
+    // เรียก initStaticDropdowns เพื่อสร้างตัวเลือกสัปดาห์ใหม่
+    if(typeof window.initStaticDropdowns === 'function') window.initStaticDropdowns();
+    // สั่งให้ Enhancer อัปเดต UI ของ week grid ให้แสดงผลถูกต้อง
+    setTimeout(function(){
+      if(typeof window.schoolhubDDEnhancer === 'object' && typeof window.schoolhubDDEnhancer.updateWeekGrid === 'function'){
+        window.schoolhubDDEnhancer.updateWeekGrid('sh-star-week');
+      }
+    }, 50);
+  }
+  weekSel.value=1;
   shStarRender();
   eid('sh-star-modal').classList.remove('hidden');
 };
