@@ -139,7 +139,17 @@ W.openStarGroupModal = function(){
       return;
   }
   starCD(cid);
-  eid('sh-star-week').value=1;
+  // สร้างตัวเลือกสัปดาห์ (1-20) อัตโนมัติ
+  const weekSel=eid('sh-star-week');
+  if(weekSel && !weekSel.querySelector('option')){
+    for(let w=1;w<=20;w++){
+      const opt=document.createElement('option');
+      opt.value=w;
+      opt.textContent='สัปดาห์ที่ '+w;
+      weekSel.appendChild(opt);
+    }
+  }
+  weekSel.value=1;
   shStarRender();
   eid('sh-star-modal').classList.remove('hidden');
 };
