@@ -55,6 +55,14 @@ W.openBonusScoreModal = function(){
   if(!cid){ alert2('กรุณาเลือกรายวิชา','กรุณาเปิดรายวิชาก่อนใช้งาน'); return; }
   ensureField(getState(),'bonusScores',{});
   ensureField(getState().bonusScores,cid,{});
+  // บังคับให้ initStaticDropdowns ทำงานใหม่
+  if(typeof window.initStaticDropdowns === 'function') window.initStaticDropdowns();
+  // สั่ง Rebuild UI ให้ Enhancer วาดตัวเลือกใหม่
+  setTimeout(function(){
+    if(typeof window.schoolhubDDEnhancer === 'object' && typeof window.schoolhubDDEnhancer.rebuild === 'function'){
+      window.schoolhubDDEnhancer.rebuild('sh-bonus-week');
+    }
+  }, 10);
   shBonusRender();
   document.getElementById('sh-bonus-modal').classList.remove('hidden');
 };

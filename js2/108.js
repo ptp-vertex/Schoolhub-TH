@@ -154,9 +154,11 @@ W.openStarGroupModal = function(){
     }
     
     weekSel.value=1;
-    // กระตุ้นให้ Enhancer อัปเดต UI
+    // สั่ง Rebuild UI ให้ Enhancer วาดตัวเลือกใหม่
     setTimeout(function(){
-      weekSel.dispatchEvent(new Event('change'));
+      if(typeof window.schoolhubDDEnhancer === 'object' && typeof window.schoolhubDDEnhancer.rebuild === 'function'){
+        window.schoolhubDDEnhancer.rebuild('sh-star-week');
+      }
     }, 10);
   }
   shStarRender();
