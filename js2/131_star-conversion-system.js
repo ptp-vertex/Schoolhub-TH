@@ -11,7 +11,6 @@
   function getCid(){ return W.currentActiveCourseId || null; }
   async function dbSave(){ if(typeof W.saveStateToDB==='function') return W.saveStateToDB(); return Promise.resolve(); }
 
-  // ── 1. Star Conversion Popup ──────────────────────────────────────────
   W.openStarConversionPopup = function(){
     const cid = getCid();
     if (!cid) {
@@ -30,92 +29,85 @@
       return;
     }
 
-    let pop = byId('sh-star-conv-popup');
-    if (!pop) {
-      pop = document.createElement('div');
-      pop.id = 'sh-star-conv-popup';
-      pop.className = 'fixed inset-0 z-[999999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4';
-      document.body.appendChild(pop);
+    let modal = byId('sh-star-merge-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'sh-star-merge-modal';
+      modal.className = 'sh-overlay hidden';
+      document.body.appendChild(modal);
     }
 
     const setOptions = starSets.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
     const plans = (getState().coursePlans && getState().coursePlans[cid]) || [];
     const weekOptions = plans.map(p => `<option value="${p.week}">สัปดาห์ที่ ${p.week} (${p.title})</option>`).join('');
 
-    pop.innerHTML = `
-      <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-amber-500 text-white">
-          <div>
-            <div class="font-black text-xl">จัดการการแปลงคะแนนดาวกลุ่ม</div>
-            <div class="text-xs opacity-80 text-amber-100">เฉลี่ยคะแนนตามลำดับดาวของกลุ่มและแปลงเข้าสู่คะแนนเก็บ</div>
-          </div>
-          <button onclick="document.getElementById('sh-star-conv-popup').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-full transition"><i class="fas fa-times"></i></button>
-        </div>
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:20px;max-width:480px;width:100%;max-height:86vh;overflow:auto;padding:22px">
+        <h3 style="font-weight:900;font-size:18px;margin-bottom:4px">
+          <i class="fas fa-star" style="color:#d97706;margin-right:6px"></i>จัดการการแปลงคะแนนดาวกลุ่ม
+        </h3>
+        <p style="color:#64748b;font-size:12px;margin-bottom:14px">
+          เฉลี่ยคะแนนตามลำดับดาวของกลุ่มและแปลงเข้าสู่คะแนนเก็บหรือคะแนนรวม
+        </p>
         
-        <div class="p-6 overflow-y-auto flex-1 space-y-6">
-          <!-- Set Selection -->
-          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <label class="block text-xs font-black text-slate-500 mb-2 uppercase tracking-wider">เลือกเซตกลุ่ม</label>
-            <select id="sh-sc-set-id" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-amber-500 outline-none" onchange="W.updateStarConvPreview()">
-              ${setOptions}
-            </select>
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px">เลือกเซตกลุ่ม:</label>
+          <select id="sh-sc-set-id" style="width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:8px 12px;font-size:14px;outline:none" onchange="W.updateStarConvPreview()">
+            ${setOptions}
+          </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+          <div style="background:#f0fdf4;border:1px solid #dcfce7;border-radius:14px;padding:10px">
+            <label style="display:block;font-size:11px;font-weight:800;color:#166534;margin-bottom:4px">คะแนนสูงสุด (ที่ 1)</label>
+            <input type="number" id="sh-sc-max-score" value="20" style="width:100%;border:1px solid #bbf7d0;border-radius:10px;padding:6px;text-align:center;font-weight:800" oninput="W.updateStarConvPreview()">
           </div>
-
-          <!-- Score Range -->
-          <div class="grid grid-cols-2 gap-4">
-            <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-              <label class="block text-xs font-black text-emerald-600 mb-2 uppercase tracking-wider">คะแนนสูงสุด (ที่ 1)</label>
-              <input type="number" id="sh-sc-max-score" class="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2 font-bold text-center" value="20" oninput="W.updateStarConvPreview()">
-            </div>
-            <div class="bg-rose-50 p-4 rounded-2xl border border-rose-100">
-              <label class="block text-xs font-black text-rose-600 mb-2 uppercase tracking-wider">คะแนนต่ำสุด (โหล)</label>
-              <input type="number" id="sh-sc-min-score" class="w-full bg-white border border-rose-200 rounded-xl px-4 py-2 font-bold text-center" value="10" oninput="W.updateStarConvPreview()">
-            </div>
-          </div>
-
-          <!-- Target Selection -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-              <label class="block text-xs font-black text-slate-500 mb-2 uppercase tracking-wider">เป้าหมายการแปลง</label>
-              <select id="sh-sc-target" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-amber-500 outline-none" onchange="W.updateStarConvUI()">
-                <option value="total">แปลงเข้าคะแนนรวมโดยตรง (Total)</option>
-                <option value="week">แปลงเข้าสัปดาห์คะแนน (Week)</option>
-              </select>
-            </div>
-            <div id="sh-sc-week-select-box" class="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 hidden">
-              <label class="block text-xs font-black text-indigo-600 mb-2 uppercase tracking-wider">เลือกสัปดาห์ที่ต้องการแปลงเข้า</label>
-              <select id="sh-sc-week-num" class="w-full bg-white border border-indigo-200 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-indigo-500 outline-none">
-                ${weekOptions || '<option value="">-- ยังไม่มีแผนการสอน --</option>'}
-              </select>
-            </div>
-          </div>
-
-          <!-- Preview -->
-          <div id="sh-sc-preview-list" class="space-y-2"></div>
-
-          <!-- History -->
-          <div>
-            <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-wider">ประวัติการแปลงคะแนนดาว</label>
-            <div id="sh-sc-history" class="space-y-2"></div>
+          <div style="background:#fff1f2;border:1px solid #ffe4e6;border-radius:14px;padding:10px">
+            <label style="display:block;font-size:11px;font-weight:800;color:#9f1239;margin-bottom:4px">คะแนนต่ำสุด (โหล)</label>
+            <input type="number" id="sh-sc-min-score" value="10" style="width:100%;border:1px solid #fecdd3;border-radius:10px;padding:6px;text-align:center;font-weight:800" oninput="W.updateStarConvPreview()">
           </div>
         </div>
 
-        <div class="p-6 border-t border-slate-100 flex gap-3">
-          <button onclick="document.getElementById('sh-star-conv-popup').classList.add('hidden')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition">ปิดหน้าต่าง</button>
-          <button onclick="W.applyStarConversion()" class="flex-[2] py-3 bg-amber-500 text-white font-black rounded-2xl hover:bg-amber-600 shadow-lg shadow-amber-200 transition">ดำเนินการแปลงคะแนน</button>
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:13px;font-weight:700;color:#475569;margin-bottom:6px">เป้าหมายการแปลง:</label>
+          <select id="sh-sc-target" style="width:100%;border:1.5px solid #e2e8f0;border-radius:12px;padding:8px 12px;font-size:14px;outline:none" onchange="W.updateStarConvUI()">
+            <option value="total">แปลงเข้าคะแนนรวมโดยตรง (Total)</option>
+            <option value="week">แปลงเข้าสัปดาห์คะแนน (Week)</option>
+          </select>
+        </div>
+
+        <div id="sh-sc-week-select-box" style="margin-bottom:14px;display:none">
+          <label style="display:block;font-size:13px;font-weight:700;color:#4f46e5;margin-bottom:6px">เลือกสัปดาห์ที่ต้องการแปลงเข้า:</label>
+          <select id="sh-sc-week-num" style="width:100%;border:1.5px solid #c7d2fe;border-radius:12px;padding:8px 12px;font-size:14px;outline:none">
+            ${weekOptions || '<option value="">-- ยังไม่มีแผนการสอน --</option>'}
+          </select>
+        </div>
+
+        <div id="sh-sc-preview-list" style="margin-bottom:16px;display:flex;flex-direction:column;gap:6px"></div>
+
+        <div style="margin-top:18px;padding-top:14px;border-top:2px dashed #e2e8f0">
+          <div style="font-weight:800;color:#334155;margin-bottom:8px;font-size:13px">
+            <i class="fas fa-clock-rotate-left" style="color:#64748b;margin-right:6px"></i>ประวัติการแปลงคะแนนดาว
+          </div>
+          <div id="sh-sc-history" style="max-height:180px;overflow:auto;display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:20px">
+          <button type="button" onclick="document.getElementById('sh-star-merge-modal').classList.add('hidden')" style="flex:1;background:#f1f5f9;color:#334155;border:none;border-radius:12px;padding:10px;font-weight:800;cursor:pointer">ปิด</button>
+          <button type="button" onclick="W.applyStarConversion()" style="flex:2;background:#d97706;color:#fff;border:none;border-radius:12px;padding:10px;font-weight:800;cursor:pointer">ดำเนินการแปลง</button>
         </div>
       </div>
     `;
 
-    pop.classList.remove('hidden');
+    modal.classList.remove('hidden');
     W.updateStarConvUI();
   };
 
   W.updateStarConvUI = function(){
     const target = byId('sh-sc-target').value;
     const weekBox = byId('sh-sc-week-select-box');
-    if (target === 'week') weekBox.classList.remove('hidden');
-    else weekBox.classList.add('hidden');
+    if (target === 'week') weekBox.style.display = 'block';
+    else weekBox.style.display = 'none';
     W.updateStarConvPreview();
     W.renderStarConvHistory();
   };
@@ -165,19 +157,18 @@
       g.scaledScore = Math.round(g.scaledScore * 100) / 100;
     });
 
-    let previewHtml = `<div class="text-[10px] font-black text-slate-400 mb-2 uppercase">พรีวิวการแปลงคะแนน (เฉลี่ยตามลำดับกลุ่ม)</div>`;
+    let previewHtml = `<div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;margin-bottom:4px">พรีวิวการแปลง (เฉลี่ยตามลำดับ)</div>`;
     previewHtml += groupData.map(g => `
-      <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
-        <div class="flex items-center gap-3">
-          <div class="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 rounded-full text-[10px] font-black">${g.rank}</div>
-          <div class="min-w-0">
-            <div class="text-sm font-bold text-slate-700 truncate">${esc(g.name)}</div>
-            <div class="text-[10px] text-slate-400">${g.stars} ⭐</div>
+      <div style="display:flex;align-items:center;justify-content:between;padding:8px 10px;background:#fff;border:1px solid #f1f5f9;border-radius:10px">
+        <div style="flex:1;display:flex;align-items:center;gap:8px">
+          <div style="width:20px;height:20px;background:#fef3c7;color:#d97706;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900">${g.rank}</div>
+          <div>
+            <div style="font-size:12px;font-weight:800;color:#334155">${esc(g.name)}</div>
+            <div style="font-size:9px;color:#94a3b8">${g.stars} ⭐</div>
           </div>
         </div>
-        <div class="text-right">
-          <div class="text-sm font-black text-emerald-600">${W.formatScoreDisplay(g.scaledScore, 2)}</div>
-          <div class="text-[9px] text-slate-400 uppercase font-bold">คะแนนที่จะได้</div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:900;color:#059669">${W.formatScoreDisplay ? W.formatScoreDisplay(g.scaledScore, 2) : g.scaledScore}</div>
         </div>
       </div>
     `).join('');
@@ -195,27 +186,20 @@
     if (!container) return;
 
     if (convs.length === 0) {
-      container.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-2xl">ยังไม่มีประวัติการแปลงคะแนนดาว</div>';
+      container.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:12px;border:1.5px dashed #f1f5f9;border-radius:12px">ยังไม่มีประวัติการแปลงดาว</div>';
       return;
     }
 
     container.innerHTML = convs.map((c, idx) => {
-      const date = new Date(c.timestamp).toLocaleString('th-TH', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-      const typeText = c.target === 'total' ? '<span class="text-emerald-600">คะแนนรวม (Total)</span>' : `<span class="text-indigo-600">สัปดาห์ที่ ${c.weekNum}</span>`;
+      const date = new Date(c.timestamp).toLocaleString('th-TH', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      const targetText = c.target === 'total' ? 'คะแนนรวม' : 'สัปดาห์ที่ ' + c.weekNum;
       return `
-        <div class="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-amber-200 transition group">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-500 rounded-xl group-hover:bg-amber-50 group-hover:text-amber-600 transition">
-              <i class="fas ${c.target === 'total' ? 'fa-chart-pie' : 'fa-calendar-check'}"></i>
-            </div>
-            <div>
-              <div class="text-sm font-black text-slate-700">แปลงเข้า ${typeText}</div>
-              <div class="text-[10px] text-slate-400 font-bold uppercase">${date} • เซต ${c.setName}</div>
-            </div>
+        <div style="display:flex;align-items:center;justify-content:between;padding:10px 12px;background:#fffaf5;border:1px solid #fed7aa;border-radius:12px;gap:8px">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:800;color:#9a3412">เข้า ${targetText}</div>
+            <div style="font-size:10px;color:#c2410c;font-weight:700">${date} • เซต ${esc(c.setName)}</div>
           </div>
-          <button onclick="W.deleteStarConversion('${c.id}')" class="w-8 h-8 flex items-center justify-center text-rose-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition" title="ลบรายการนี้">
-            <i class="fas fa-trash-alt"></i>
-          </button>
+          <button onclick="W.deleteStarConversion('${c.id}')" style="background:none;border:none;color:#fb7185;cursor:pointer;padding:4px;font-size:14px"><i class="fas fa-trash-alt"></i></button>
         </div>
       `;
     }).join('');
