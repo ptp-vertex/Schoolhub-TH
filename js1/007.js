@@ -4344,8 +4344,8 @@ async function submitPlanRequest(planId){
                 if (!isChecklist) totalMax = window.addScoreToTotal(totalMax, p.maxScore, 2);
             });
             thead += `<th class="text-center bg-slate-800 text-white font-bold summary-total-col">รวม<br><span class="text-[9px] text-slate-300">${window.formatScoreDisplay(totalMax, 2)}</span></th>`;
-            thead += `<th class="text-center bg-emerald-600 text-white font-bold sh-bonus-col" style="font-size:10px;padding:2px 1px;white-space:nowrap" title="คะแนนโบนัส — คลิกที่ช่องของนักเรียนเพื่อดูรายละเอียด, ดับเบิลคลิกที่หัวข้อนี้เพื่อตั้งค่าการรวมกับคะแนนรวม" ondblclick="shOvOpenBonusMergeSettings('${cid}')">+โบนัส</th>`;
-            thead += `<th class="text-center bg-amber-500 text-white font-bold sh-star-col" style="font-size:10px;padding:2px 1px;white-space:nowrap;cursor:pointer" title="คลิกเพื่อแปลงดาวเป็นคะแนน / ดูประวัติการแปลง" onclick="if(typeof shStarConvertOpen==='function') shStarConvertOpen('${cid}')">⭐ดาว</th>`;
+            thead += `<th class="text-center bg-emerald-600 text-white font-bold sh-bonus-col" style="font-size:10px;padding:2px 1px;white-space:nowrap;cursor:pointer" title="คะแนนโบนัส — ดับเบิลคลิกเพื่อจัดการคะแนนโบนัส" ondblclick="if(typeof openBonusScoreModal==='function') openBonusScoreModal()">+โบนัส</th>`;
+            thead += `<th class="text-center bg-amber-500 text-white font-bold sh-star-col" style="font-size:10px;padding:2px 1px;white-space:nowrap;cursor:pointer" title="ดาวสะสม — ดับเบิลคลิกเพื่อจัดการดาวกลุ่ม" ondblclick="if(typeof openStarGroupModal==='function') openStarGroupModal()">⭐ดาว</th>`;
             thead += `<th class="text-center bg-amber-50 text-amber-700 font-bold summary-grade-col">เกรด</th></tr></thead>`;
             table.innerHTML = thead;
 
