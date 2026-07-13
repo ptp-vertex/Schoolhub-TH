@@ -1973,25 +1973,19 @@ async function submitPlanRequest(planId){
 
             // Stars (from group membership, same source as the teacher overview table)
             const starCourseData=(state.starGroups&&state.starGroups[cid])||{};
-            const starSets = starCourseData.sets || [];
+            const starGroups=starCourseData.groups||[];
+            const weekStars=starCourseData.weekStars||{};
             let totalStars=0;
             const starDetail=[];
-            
-            starSets.forEach(s => {
-                const groups = s.groups || [];
-                const weekStars = s.weekStars || {};
-                const studentGroups = groups.filter(g => (g.members||[]).includes(student.id));
-                Object.keys(weekStars).forEach(wk => {
-                    const weekData = weekStars[wk] || {};
-                    let weekStarSum = 0;
-                    studentGroups.forEach(g => { weekStarSum += weekData[g.id] || 0; });
-                    if (weekStarSum > 0) {
-                        totalStars += weekStarSum;
-                        const existing = starDetail.find(d => d.week === wk.replace('w',''));
-                        if (existing) existing.stars += weekStarSum;
-                        else starDetail.push({ week: wk.replace('w',''), stars: weekStarSum });
-                    }
-                });
+            const studentGroups=starGroups.filter(g=>(g.members||[]).includes(student.id));
+            Object.keys(weekStars).forEach(wk=>{
+                const weekData=weekStars[wk]||{};
+                let weekStarSum=0;
+                studentGroups.forEach(g=>{weekStarSum+=weekData[g.id]||0;});
+                if(weekStarSum>0){
+                    totalStars+=weekStarSum;
+                    starDetail.push({week:wk.replace('w',''),stars:weekStarSum});
+                }
             });
             starDetail.sort((a,b)=>Number(a.week)-Number(b.week));
 
@@ -4421,27 +4415,32 @@ async function submitPlanRequest(planId){
                 const __bonusCellColor = __totalBonus > 0 ? 'color:#065f46;font-weight:800' : 'color:#94a3b8';
                 const __bonusCellBg = __totalBonus > 0 ? 'background:#d1fae5' : '';
 
-                // Stars for this student (from group membership)
+                // Stars for this student (from group membership) - Supports Multi-Set
                 const __starCourseData = (state.starGroups && state.starGroups[cid]) || {};
                 const __starSets = __starCourseData.sets || [];
                 let __totalStars = 0;
-                const __starDetail = [];
-                __starSets.forEach(s => {
-                    const groups = s.groups || [];
-                    const weekStars = s.weekStars || {};
-                    const studentGroups = groups.filter(g => (g.members||[]).includes(s.id));
-                    Object.keys(weekStars).forEach(wk => {
-                        const weekData = weekStars[wk] || {};
-                        let weekStarSum = 0;
-                        studentGroups.forEach(g => { weekStarSum += weekData[g.id] || 0; });
-                        if (weekStarSum > 0) {
-                            __totalStars += weekStarSum;
-                            const existing = __starDetail.find(d => d.week === wk.replace('w',''));
-                            if (existing) existing.stars += weekStarSum;
-                            else __starDetail.push({ week: wk.replace('w',''), stars: weekStarSum });
-                        }
-                    });
+                const __starDetailMap = {}; // Use map to merge same week from different sets
+                
+                __starSets.forEach(__set => {
+                  const __groups = __set.groups || [];
+                  const __weekStars = __set.weekStars || {};
+                  const __studentGroups = __groups.filter(g => (g.members||[]).includes(s.id));
+                  
+                  Object.keys(__weekStars).forEach(wk => {
+                    const weekData = __weekStars[wk] || {};
+                    let weekStarSum = 0;
+                    __studentGroups.forEach(g => { weekStarSum += weekData[g.id] || 0; });
+                    if (weekStarSum > 0) {
+                      __totalStars += weekStarSum;
+                      __starDetailMap[wk] = (__starDetailMap[wk] || 0) + weekStarSum;
+                    }
+                  });
                 });
+                
+                const __starDetail = Object.keys(__starDetailMap).map(wk => ({
+                  week: wk.replace('w',''),
+                  stars: __starDetailMap[wk]
+                })).sort((a,b) => parseInt(a.week) - parseInt(b.week));
                 const __starDetailJson = encodeURIComponent(JSON.stringify(__starDetail));
                 const __starCellColor = __totalStars > 0 ? 'color:#92400e;font-weight:800' : 'color:#94a3b8';
                 const __starCellBg = __totalStars > 0 ? 'background:#fef3c7' : '';

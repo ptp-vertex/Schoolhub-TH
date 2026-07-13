@@ -74,35 +74,36 @@
     header.push('รวมคะแนน(เต็ม '+window.formatScoreDisplay(totalMax,2)+')','เกรด','โบนัส','ดาว','หมายเหตุ');
     var aoa=[['สรุปภาพรวมวิชา: '+cName],['ห้อง: '+(room || 'ทุกห้อง')],[],header];
     var bonusByCid=(state.bonusScores && state.bonusScores[cid]) || {};
-    var starCourseData=(state.starGroups && state.starGroups[cid]) || {};
-    var starSets = starCourseData.sets || [];
-    var bmSettings=(state.bonusMergeSettings && state.bonusMergeSettings[cid]) || null;
-    students.forEach(function(st,idx){
-      var pr=0, la=0, ab=0, lv=0;
-      dates.forEach(function(d){ var rec=(history[d] && history[d].records) || {}; var v=rec[st.id]; if(v==='present') pr++; else if(v==='late') la++; else if(v==='absent') ab++; else if(v==='leave') lv++; });
-      var row=[idx+1, st.code||'', st.name||'', roomOf(st), pr, la, ab, lv];
-      var total=0;
-      var isWithdrawn = (window.isWithdrawnStudent || window.isStudentWithdrawn || function(){return false;})(st);
-      plans.forEach(function(p){
-        if(isWithdrawn){ row.push('ลาออก'); return; }
-        var task=scores.find(function(ts){ return String(ts.week)===String(p.week) && String(ts.title)===String(p.title); });
-        var raw=task && task.records ? task.records[st.id] : null;
-        if(Number(p.maxScore||0)===0) row.push(raw===1?'ส่งแล้ว':(raw===0?'ยังไม่ส่ง':'-'));
-        else { total = window.addScoreToTotal(total, raw, 2); row.push(!task ? '-' : ((window.isMissingScoreValue ? window.isMissingScoreValue(raw) : raw==='')?'ขาดส่ง':window.normalizeScoreNumber(raw,2))); }
-      });
-      if (isWithdrawn) { row.push('ลาออก','ลาออก','ลาออก','ลาออก','ลาออก'); aoa.push(row); return; }
-      var totalBonus=0;
-      Object.keys(bonusByCid).forEach(function(wk){ var wVal=bonusByCid[wk] && bonusByCid[wk][st.id]; if(wVal!==undefined && wVal!=='' && !isNaN(Number(wVal)) && Number(wVal)!==0) totalBonus += Number(wVal); });
-      var totalStars=0;
-      starSets.forEach(function(s){
-        var groups = s.groups || [];
-        var weekStars = s.weekStars || {};
-        var studentGroups = groups.filter(function(g){ return (g.members||[]).indexOf(st.id) !== -1; });
-        Object.keys(weekStars).forEach(function(wk){
-          var weekData = weekStars[wk] || {};
-          studentGroups.forEach(function(g){ totalStars += weekData[g.id] || 0; });
+      var starCourseData=(state.starGroups && state.starGroups[cid]) || {};
+      var starSets=starCourseData.sets || [];
+      var bmSettings=(state.bonusMergeSettings && state.bonusMergeSettings[cid]) || null;
+      students.forEach(function(st,idx){
+        var pr=0, la=0, ab=0, lv=0;
+        dates.forEach(function(d){ var rec=(history[d] && history[d].records) || {}; var v=rec[st.id]; if(v==='present') pr++; else if(v==='late') la++; else if(v==='absent') ab++; else if(v==='leave') lv++; });
+        var row=[idx+1, st.code||'', st.name||'', roomOf(st), pr, la, ab, lv];
+        var total=0;
+        var isWithdrawn = (window.isWithdrawnStudent || window.isStudentWithdrawn || function(){return false;})(st);
+        plans.forEach(function(p){
+          if(isWithdrawn){ row.push('ลาออก'); return; }
+          var task=scores.find(function(ts){ return String(ts.week)===String(p.week) && String(ts.title)===String(p.title); });
+          var raw=task && task.records ? task.records[st.id] : null;
+          if(Number(p.maxScore||0)===0) row.push(raw===1?'ส่งแล้ว':(raw===0?'ยังไม่ส่ง':'-'));
+          else { total = window.addScoreToTotal(total, raw, 2); row.push(!task ? '-' : ((window.isMissingScoreValue ? window.isMissingScoreValue(raw) : raw==='')?'ขาดส่ง':window.normalizeScoreNumber(raw,2))); }
         });
-      });
+        if (isWithdrawn) { row.push('ลาออก','ลาออก','ลาออก','ลาออก','ลาออก'); aoa.push(row); return; }
+        var totalBonus=0;
+        Object.keys(bonusByCid).forEach(function(wk){ var wVal=bonusByCid[wk] && bonusByCid[wk][st.id]; if(wVal!==undefined && wVal!=='' && !isNaN(Number(wVal)) && Number(wVal)!==0) totalBonus += Number(wVal); });
+        
+        var totalStars=0;
+        starSets.forEach(function(set){
+          var groups=set.groups || [];
+          var weekStars=set.weekStars || {};
+          var studentGroups=groups.filter(function(g){ return (g.members||[]).indexOf(st.id) !== -1; });
+          Object.keys(weekStars).forEach(function(wk){
+            var weekData=weekStars[wk] || {};
+            studentGroups.forEach(function(g){ totalStars += weekData[g.id] || 0; });
+          });
+        });
       // Merge bonus into the total exactly like the on-screen overview table, if the teacher has enabled it
       var note = '';
       if (bmSettings && bmSettings.enabled) {
