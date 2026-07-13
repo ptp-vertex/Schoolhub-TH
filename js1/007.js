@@ -1971,23 +1971,40 @@ async function submitPlanRequest(planId){
             });
             bonusDetail.sort((a,b)=>Number(a.week)-Number(b.week));
 
-            // Stars (from group membership, same source as the teacher overview table)
+            // Stars (from group membership, same source as the teacher overview table) — Multi-Set aware
             const starCourseData=(state.starGroups&&state.starGroups[cid])||{};
-            const starGroups=starCourseData.groups||[];
-            const weekStars=starCourseData.weekStars||{};
+            const starSets=(starCourseData.sets||[]);
             let totalStars=0;
-            const starDetail=[];
-            const studentGroups=starGroups.filter(g=>(g.members||[]).includes(student.id));
-            Object.keys(weekStars).forEach(wk=>{
-                const weekData=weekStars[wk]||{};
-                let weekStarSum=0;
-                studentGroups.forEach(g=>{weekStarSum+=weekData[g.id]||0;});
-                if(weekStarSum>0){
-                    totalStars+=weekStarSum;
-                    starDetail.push({week:wk.replace('w',''),stars:weekStarSum});
-                }
+            const starDetailMap={};
+            starSets.forEach(starSet=>{
+                const starGroups=starSet.groups||[];
+                const weekStars=starSet.weekStars||{};
+                const studentGroups=starGroups.filter(g=>(g.members||[]).includes(student.id));
+                Object.keys(weekStars).forEach(wk=>{
+                    const weekData=weekStars[wk]||{};
+                    let weekStarSum=0;
+                    studentGroups.forEach(g=>{weekStarSum+=weekData[g.id]||0;});
+                    if(weekStarSum>0){
+                        totalStars+=weekStarSum;
+                        starDetailMap[wk]=(starDetailMap[wk]||0)+weekStarSum;
+                    }
+                });
             });
-            starDetail.sort((a,b)=>Number(a.week)-Number(b.week));
+            // Also handle old single-set structure if migration hasn't happened yet
+            if(starCourseData.groups && !starSets.length){
+                const oldGroups=(starCourseData.groups||[]).filter(g=>(g.members||[]).includes(student.id));
+                const oldWeekStars=starCourseData.weekStars||{};
+                Object.keys(oldWeekStars).forEach(wk=>{
+                    const weekData=oldWeekStars[wk]||{};
+                    let weekStarSum=0;
+                    oldGroups.forEach(g=>{weekStarSum+=weekData[g.id]||0;});
+                    if(weekStarSum>0){
+                        totalStars+=weekStarSum;
+                        starDetailMap[wk]=(starDetailMap[wk]||0)+weekStarSum;
+                    }
+                });
+            }
+            const starDetail=Object.keys(starDetailMap).map(wk=>({week:wk.replace('w',''),stars:starDetailMap[wk]})).sort((a,b)=>Number(a.week)-Number(b.week));
 
             // Bonus-merge-into-total setting (configured by the teacher via the +โบนัส header)
             const bmSettings=(state.bonusMergeSettings&&state.bonusMergeSettings[cid])||null;
