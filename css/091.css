@@ -62,6 +62,11 @@
 .sh-week-row input, .sh-week-row select {
   padding:6px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; background:#f8fafc;
 }
+@media (max-width: 640px) {
+  #sh-star-selectors-row { flex-direction: column !important; align-items: stretch !important; }
+  #sh-star-selectors-row > div { flex: none !important; min-width: auto !important; }
+  #sh-star-selectors-row select { width: 100% !important; }
+}
 .sh-bonus-table { width:100%; border-collapse:collapse; font-size:14px; }
 .sh-bonus-table th { background:#f1f5f9; padding:8px 10px; font-weight:700; color:#475569; text-align:left; }
 .sh-bonus-table td { padding:8px 10px; border-bottom:1px solid #f8fafc; }
