@@ -229,23 +229,24 @@ W.shStarAddGroup=function(){
   if(!name) return;
   const cid=getCid(); if(!cid) return;
   const cd=starCourseData(cid);
-  const currentSet = (cd.sets||[]).find(s => s.id === cd.currentSetId);
+  const setId = window.__currentEditSetId;
+  const currentSet = (cd.sets||[]).find(s => s.id === setId);
   if(!currentSet) { alert2('ผิดพลาด','กรุณาเลือกเซ็ทก่อนเพิ่มกลุ่ม'); return; }
-  
   currentSet.groups.push({id:'sg'+Date.now(),name,members:[]});
   if(inp) inp.value='';
   dbSave();
-  shStarRender();
+  shStarRenderGroupList();
 };
 W.shStarDelGroup=function(gid){
   const cid=getCid(); if(!cid) return;
   confirm2('ยืนยันการลบ','ต้องการลบกลุ่มนี้ใช่หรือไม่?',()=>{
     const cd=starCourseData(cid);
-    const currentSet = (cd.sets||[]).find(s => s.id === cd.currentSetId);
+    const setId = window.__currentEditSetId;
+    const currentSet = (cd.sets||[]).find(s => s.id === setId);
     if(!currentSet) return;
     currentSet.groups=currentSet.groups.filter(g=>g.id!==gid);
     dbSave();
-    shStarRender();
+    shStarRenderGroupList();
   });
 };
 W.shStarApplyBonus=function(){
@@ -312,13 +313,14 @@ W.shStarSetRender = function(){
   }
   
   container.innerHTML = sets.map(s => {
-    const isActive = s.id === cd.currentSetId;
-    return `<div class="sh-starset-card ${isActive?'sh-starset-active':''}">
-      <div style="cursor:pointer;flex:1" onclick="shStarSelectSet('${s.id}')">
-        <div class="sh-starset-name">${s.name} ${isActive?'<span style="font-size:10px;background:#f59e0b;color:#fff;padding:2px 6px;border-radius:10px;margin-left:4px">ใช้งานอยู่</span>':''}</div>
+    const nm = s.name.replace(/'/g, "\\'");
+    return `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div style="flex:1">
+        <div style="font-weight:700;color:#334155;font-size:15px">${s.name}</div>
         <div style="font-size:11px;color:#64748b">${s.groups.length} กลุ่ม</div>
       </div>
-      <button class="sh-del-group" onclick="shStarDelSet('${s.id}')">ลบ</button>
+      <button class="sh-del-group" onclick="shStarDelSet('${s.id}')" style="padding:6px 12px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600">ลบ</button>
+      <button onclick="shStarOpenGroupModal('${s.id}','${nm}')" style="padding:6px 12px;background:#8b5cf6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600"><i class="fas fa-edit mr-1"></i>ดู/เพิ่ม กลุ่ม</button>
     </div>`;
   }).join('');
 };
@@ -329,6 +331,27 @@ W.shStarSelectSet = function(sid){
   cd.currentSetId = sid;
   dbSave();
   shStarRender();
+};
+W.shStarOpenGroupModal = function(setId, setName){
+  const cid=getCid(); if(!cid) return;
+  window.__currentEditSetId = setId;
+  document.getElementById('sh-stargroup-modal-title').textContent = 'จัดการกลุ่ม - ' + setName;
+  shStarRenderGroupList();
+  document.getElementById('sh-stargroup-modal').classList.remove('hidden');
+};
+W.shStarGroupClose = function(){
+  document.getElementById('sh-stargroup-modal').classList.add('hidden');
+  window.__currentEditSetId = null;
+};
+W.shStarRenderGroupList = function(){
+  const cid=getCid(); if(!cid) return;
+  const cd=starCourseData(cid);
+  const setId = window.__currentEditSetId;
+  const currentSet = (cd.sets||[]).find(s => s.id === setId);
+  if(!currentSet) return;
+  const groups = currentSet.groups || [];
+  const html = groups.map(g => `<div style="background:#f0f4f8;border-left:4px solid #8b5cf6;border-radius:6px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;color:#334155">${g.name}</div><div style="font-size:11px;color:#64748b">${g.members.length} นักเรียน</div></div><button class="sh-del-group" onclick="shStarDelGroup('${g.id}')" style="padding:4px 10px;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600">ลบ</button></div>`).join('');
+  document.getElementById('sh-stargroup-list').innerHTML = html || '<div style="text-align:center;color:#94a3b8;padding:20px;font-size:13px">ไม่มีกลุ่มในเซ็ทนี้</div>';
 };
 W.shStarAddSet = function(){
   const inp = document.getElementById('sh-new-set-name');
