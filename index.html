@@ -1875,7 +1875,7 @@ document.addEventListener('paste', function(e){
     <div id="public-share-view" class="fixed inset-0 share-public-bg z-[210] hidden overflow-y-auto p-4 md:p-8"><div class="max-w-4xl mx-auto"><div class="flex items-center gap-3 mb-5"><div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-lg"><i class="fas fa-graduation-cap"></i></div><div><h1 class="text-2xl font-black text-slate-900">SchoolHub</h1><p class="text-sm text-slate-500">ข้อมูลที่ครูแชร์ให้ดู</p></div></div><div id="public-share-content" class="share-mini-card rounded-[2rem] p-6 md:p-8 shadow-xl"></div></div></div>
 
     <!-- Share History Popup -->
-    <div id="share-history-popup" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center fade-in p-4" style="z-index:960000;">
+    <div id="share-history-popup" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center fade-in p-4" style="z-index:2147483500;">
         <div class="bg-white rounded-[2rem] w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
             <div class="p-5 border-b bg-gradient-to-r from-indigo-50 to-white flex justify-between items-center gap-4 shrink-0">
                 <div>
@@ -1954,6 +1954,65 @@ document.addEventListener('paste', function(e){
         padding: 3px 8px;
         display: inline-block;
     }
+    .sh-hist-actions {
+        position: relative;
+    }
+    .sh-hist-btn-manage {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        padding: 6px 12px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 700;
+        transition: all 0.2s;
+    }
+    .sh-hist-btn-manage:hover, .sh-hist-btn-manage.active {
+        background: #e2e8f0;
+        color: #1e293b;
+    }
+    .sh-hist-manage-menu {
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        margin-bottom: 8px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        min-width: 160px;
+        z-index: 100;
+        display: none;
+        overflow: hidden;
+    }
+    .sh-hist-manage-menu.open {
+        display: block;
+        animation: sh-menu-fade-in 0.2s ease-out;
+    }
+    @keyframes sh-menu-fade-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .sh-hist-menu-item {
+        width: 100%;
+        text-align: left;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #475569;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+    }
+    .sh-hist-menu-item:hover {
+        background: #f8fafc;
+        color: #1e293b;
+    }
+    .sh-hist-menu-danger:hover {
+        background: #fef2f2;
+        color: #ef4444;
+    }
+
     .sh-hist-status-badge {
         display: inline-flex;
         align-items: center;
