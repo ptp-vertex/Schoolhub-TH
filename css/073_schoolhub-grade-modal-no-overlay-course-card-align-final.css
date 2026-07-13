@@ -1,7 +1,7 @@
 
 #grade-criteria-modal{
     z-index:2147483000 !important;
-    align-items:flex-start !important;
+    align-items:center !important;
     overflow-y:auto !important;
     overflow-x:hidden !important;
     padding:max(.75rem, env(safe-area-inset-top)) .75rem max(.75rem, env(safe-area-inset-bottom)) !important;
