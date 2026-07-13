@@ -123,3 +123,35 @@
 .shdd-week-item.shdd-week-planned { background: #e0f2fe !important; color: #0369a1 !important; border-color: #bae6fd !important; }
 .shdd-week-item.shdd-week-scored { background: #1e3a8a !important; color: #ffffff !important; border-color: #1e3a8a !important; }
 .shdd-week-item.shdd-week-scored.shdd-selected { background: #4f46e5 !important; border-color: #4338ca !important; }
+
+.sh-btn-settings-small {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+.sh-btn-settings-small:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+.sh-starset-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+.sh-starset-name { font-weight: 700; color: #1e293b; font-size: 14px; }
+.sh-starset-active { border-color: #f59e0b; background: #fffbeb; }
+.sh-starset-active .sh-starset-name { color: #b45309; }
