@@ -60,10 +60,20 @@ W.shStarRender=function(){
   // Render Set Selector
   const setSel = document.getElementById('sh-star-set-select');
   if (setSel) {
-    let opts = '<option value="">-- เลือกเซต --</option>';
-    sets.forEach(s => {
-      opts += `<option value="${s.id}" ${s.id===cd.currentSetId?'selected':''}>${esc(s.name)}</option>`;
-    });
+    let opts = '';
+    // If only 1 set, auto-select it and don't show the option
+    if (sets.length === 1) {
+      if (!cd.currentSetId) {
+        cd.currentSetId = sets[0].id;
+      }
+      opts = `<option value="${sets[0].id}" selected>${esc(sets[0].name)}</option>`;
+    } else if (sets.length > 1) {
+      // Multiple sets: show dropdown with placeholder
+      opts = '<option value="">-- เลือกเซต --</option>';
+      sets.forEach(s => {
+        opts += `<option value="${s.id}" ${s.id===cd.currentSetId?'selected':''}>${esc(s.name)}</option>`;
+      });
+    }
     setSel.innerHTML = opts;
   }
 
@@ -79,10 +89,26 @@ W.shStarRender=function(){
   const container=document.getElementById('sh-star-list');
   if(!container) return;
 
-  if (!cd.currentSetId || isNaN(week)) {
+  // Check conditions for showing groups
+  if (!cd.currentSetId) {
+    if (sets.length === 0) {
+      container.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:40px 20px;background:#f8fafc;border-radius:20px;border:2px dashed #e2e8f0">
+        <i class="fas fa-layer-group" style="font-size:32px;margin-bottom:12px;display:block"></i>
+        ยังไม่มีเซตกลุ่ม — กรุณาไปที่ <b>ตั้งค่า</b> เพื่อสร้างเซตใหม่
+      </div>`;
+    } else {
+      container.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:40px 20px;background:#f8fafc;border-radius:20px;border:2px dashed #e2e8f0">
+        <i class="fas fa-hand-pointer" style="font-size:32px;margin-bottom:12px;display:block"></i>
+        กรุณาเลือก <b>เซต</b> จากด้านบน
+      </div>`;
+    }
+    return;
+  }
+  
+  if (isNaN(week)) {
     container.innerHTML = `<div style="text-align:center;color:#94a3b8;padding:40px 20px;background:#f8fafc;border-radius:20px;border:2px dashed #e2e8f0">
-      <i class="fas fa-hand-pointer" style="font-size:32px;margin-bottom:12px;display:block"></i>
-      กรุณาเลือก <b>"เซต"</b> และ <b>"สัปดาห์"</b> เพื่อดูข้อมูล
+      <i class="fas fa-calendar-week" style="font-size:32px;margin-bottom:12px;display:block"></i>
+      กรุณาเลือก <b>สัปดาห์</b> จากด้านบน
     </div>`;
     return;
   }
@@ -95,7 +121,7 @@ W.shStarRender=function(){
   const weekStars = (currentSet.weekStars && currentSet.weekStars[weekKey]) || {};
 
   if(!groups.length){
-    container.innerHTML='<div style="text-align:center;color:#94a3b8;padding:30px 20px;background:#f8fafc;border-radius:20px"><i class="fas fa-users-slash" style="font-size:28px;display:block;margin-bottom:8px"></i>ยังไม่มีกลุ่มในเซตนี้ — กด "ตั้งค่า" เพื่อจัดการกลุ่ม</div>';
+    container.innerHTML='<div style="text-align:center;color:#94a3b8;padding:30px 20px;background:#f8fafc;border-radius:20px"><i class="fas fa-users-slash" style="font-size:28px;display:block;margin-bottom:8px"></i>ยังไม่มีกลุ่ม — เพิ่มกลุ่มที่ <span style="color:#ea580c;font-weight:800">ตั้งค่า</span> ด้านบน</div>';
     return;
   }
 
