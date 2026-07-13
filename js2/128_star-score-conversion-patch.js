@@ -132,13 +132,8 @@
     var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
     var starSets = starCourseData.sets || [];
     
-    if (starSets.length === 0 && starCourseData.groups) {
-      starSets = [{ id: 'set_1', name: 'เซตที่ 1', groups: starCourseData.groups, weekStars: starCourseData.weekStars || {} }];
-      state.starGroups[cid].sets = starSets;
-    }
-
     if (starSets.length === 0) {
-      if (window.showCustomAlert) window.showCustomAlert('ไม่พบกลุ่ม','กรุณาสร้างกลุ่มนักเรียนก่อนแปลงคะแนน', true);
+      if (window.showCustomAlert) window.showCustomAlert('ไม่พบเซ็ทกลุ่ม','กรุณาสร้างเซ็ทกลุ่มนักเรียนก่อนแปลงคะแนน', true);
       return;
     }
 

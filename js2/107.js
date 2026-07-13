@@ -99,30 +99,95 @@ W.shBonusSave = async function(){
 function starCourseData(cid){
   const st=getState();
   ensureField(st,'starGroups',{});
-  if(!st.starGroups[cid]) st.starGroups[cid]={groups:[],weekStars:{},rankScores:{}};
-  return st.starGroups[cid];
+  if(!st.starGroups[cid]) st.starGroups[cid]={sets:[],weekStars:{},rankScores:{}};
+  
+  const cd = st.starGroups[cid];
+  // Migration: ถ้ายังมีข้อมูลแบบเก่า (groups) ให้ย้ายไปอยู่ใน set แรก
+  if(cd.groups && cd.groups.length > 0 && (!cd.sets || cd.sets.length === 0)){
+    cd.sets = [{
+      id: 'set_' + Date.now(),
+      name: 'เซ็ทที่ 1',
+      groups: cd.groups,
+      weekStars: cd.weekStars || {}
+    }];
+    delete cd.groups;
+    delete cd.weekStars;
+  }
+  
+  // ตรวจสอบว่ามี currentSetId หรือไม่
+  if(!cd.currentSetId && cd.sets && cd.sets.length > 0){
+    cd.currentSetId = cd.sets[0].id;
+  }
+  
+  return cd;
 }
 W.openStarGroupModal = function(){
   const cid=getCid();
   if(!cid){ alert2('กรุณาเลือกรายวิชา','กรุณาเปิดรายวิชาก่อนใช้งาน'); return; }
-  starCourseData(cid);
+  const cd = starCourseData(cid);
+  
+  // รีเซ็ตสัปดาห์ให้เป็นว่าง (บังคับเลือก) ตามความต้องการผู้ใช้
+  const weekSel = document.getElementById('sh-star-week');
+  if(weekSel) {
+    weekSel.value = ""; 
+    // ถ้ายังไม่มี option ว่าง ให้เพิ่มเข้าไป
+    if(!Array.from(weekSel.options).some(o => o.value === "")){
+      const opt = document.createElement('option');
+      opt.value = ""; opt.textContent = "-- เลือกสัปดาห์ --";
+      weekSel.insertBefore(opt, weekSel.firstChild);
+      weekSel.value = "";
+    }
+  }
+
   shStarRender();
   document.getElementById('sh-star-modal').classList.remove('hidden');
 };
 W.shStarClose=function(){ document.getElementById('sh-star-modal').classList.add('hidden'); };
 W.shStarRender=function(){
   const cid=getCid(); if(!cid) return;
-  const week=parseInt(document.getElementById('sh-star-week').value)||1;
-  const weekKey='w'+week;
   const cd=starCourseData(cid);
-  const groups=cd.groups||[];
-  const weekStars=(cd.weekStars&&cd.weekStars[weekKey])||{};
-  const container=document.getElementById('sh-star-list');
-  if(!container) return;
-  if(!groups.length){
-    container.innerHTML='<div style="text-align:center;color:#94a3b8;padding:20px;font-size:14px"><i class="fas fa-users" style="font-size:28px;display:block;margin-bottom:8px"></i>ยังไม่มีกลุ่ม — เพิ่มกลุ่มด้านล่าง</div>';
+  const sets = cd.sets || [];
+  
+  // จัดการการแสดงผลตัวเลือกเซ็ท
+  const setRow = document.getElementById('sh-star-set-selector-row');
+  const setSel = document.getElementById('sh-star-set-id');
+  if(sets.length >= 2){
+    setRow.classList.remove('hidden');
+    let html = !cd.currentSetId ? '<option value="">-- กรุณาเลือกเซ็ท --</option>' : '';
+    html += sets.map(s => `<option value="${s.id}" ${s.id===cd.currentSetId?'selected':''}>${s.name}</option>`).join('');
+    setSel.innerHTML = html;
+    
+    // ถ้ายังไม่เลือกเซ็ท และมีมากกว่า 1 เซ็ท ให้บังคับเลือกก่อน
+    if(!cd.currentSetId){
+      document.getElementById('sh-star-list').innerHTML = '<div style="text-align:center;color:#94a3b8;padding:40px;font-size:14px"><i class="fas fa-mouse-pointer" style="font-size:28px;display:block;margin-bottom:8px"></i>กรุณาเลือกเซ็ทกลุ่มก่อน</div>';
+      return;
+    }
+  } else {
+    setRow.classList.add('hidden');
+    if(sets.length === 1) cd.currentSetId = sets[0].id;
+  }
+
+  const weekVal = document.getElementById('sh-star-week').value;
+  if(!weekVal){
+    document.getElementById('sh-star-list').innerHTML = '<div style="text-align:center;color:#94a3b8;padding:40px;font-size:14px"><i class="fas fa-calendar-alt" style="font-size:28px;display:block;margin-bottom:8px"></i>กรุณาเลือกสัปดาห์ก่อน</div>';
     return;
   }
+  
+  const week=parseInt(weekVal);
+  const weekKey='w'+week;
+  const currentSet = sets.find(s => s.id === cd.currentSetId);
+  if(!currentSet) return;
+
+  const groups=currentSet.groups||[];
+  const weekStars=(currentSet.weekStars&&currentSet.weekStars[weekKey])||{};
+  const container=document.getElementById('sh-star-list');
+  if(!container) return;
+  
+  if(!groups.length){
+    container.innerHTML='<div style="text-align:center;color:#94a3b8;padding:20px;font-size:14px"><i class="fas fa-users" style="font-size:28px;display:block;margin-bottom:8px"></i>ยังไม่มีกลุ่มในเซ็ทนี้ — เพิ่มกลุ่มด้านล่าง</div>';
+    return;
+  }
+  
   const MAX=10;
   const ranked=[...groups].map(g=>({...g,stars:weekStars[g.id]||0})).sort((a,b)=>b.stars-a.stars);
   container.innerHTML=ranked.map((g,idx)=>{
@@ -145,12 +210,17 @@ W.shStarRender=function(){
 };
 W.shStarSet=function(gid, count){
   const cid=getCid(); if(!cid) return;
-  const week=parseInt(document.getElementById('sh-star-week').value)||1;
+  const weekVal = document.getElementById('sh-star-week').value;
+  if(!weekVal) return;
+  const week=parseInt(weekVal);
   const weekKey='w'+week;
   const cd=starCourseData(cid);
-  ensureField(cd,'weekStars',{}); ensureField(cd.weekStars,weekKey,{});
-  const cur=cd.weekStars[weekKey][gid]||0;
-  cd.weekStars[weekKey][gid]=(cur===count)?0:count;
+  const currentSet = (cd.sets||[]).find(s => s.id === cd.currentSetId);
+  if(!currentSet) return;
+  
+  ensureField(currentSet,'weekStars',{}); ensureField(currentSet.weekStars,weekKey,{});
+  const cur=currentSet.weekStars[weekKey][gid]||0;
+  currentSet.weekStars[weekKey][gid]=(cur===count)?0:count;
   shStarRender();
 };
 W.shStarAddGroup=function(){
@@ -159,7 +229,10 @@ W.shStarAddGroup=function(){
   if(!name) return;
   const cid=getCid(); if(!cid) return;
   const cd=starCourseData(cid);
-  cd.groups.push({id:'sg'+Date.now(),name,members:[]});
+  const currentSet = (cd.sets||[]).find(s => s.id === cd.currentSetId);
+  if(!currentSet) { alert2('ผิดพลาด','กรุณาเลือกเซ็ทก่อนเพิ่มกลุ่ม'); return; }
+  
+  currentSet.groups.push({id:'sg'+Date.now(),name,members:[]});
   if(inp) inp.value='';
   shStarRender();
 };
@@ -167,7 +240,9 @@ W.shStarDelGroup=function(gid){
   const cid=getCid(); if(!cid) return;
   confirm2('ยืนยันการลบ','ต้องการลบกลุ่มนี้ใช่หรือไม่?',()=>{
     const cd=starCourseData(cid);
-    cd.groups=cd.groups.filter(g=>g.id!==gid);
+    const currentSet = (cd.sets||[]).find(s => s.id === cd.currentSetId);
+    if(!currentSet) return;
+    currentSet.groups=currentSet.groups.filter(g=>g.id!==gid);
     shStarRender();
   });
 };
@@ -211,8 +286,69 @@ W.shStarSave=async function(){
   if(ok!==false){
     W.shStarClose();
     if(typeof W.renderCourseOverview==='function') W.renderCourseOverview();
-    shAlert('บันทึกสำเร็จ','บันทึกข้อมูลดาวกลุ่มเรียบร้อย');
+    alert2('บันทึกสำเร็จ','บันทึกข้อมูลดาวกลุ่มเรียบร้อย');
   }
+};
+
+// ── Star Sets Management ──────────────────────────────────────────
+W.shStarOpenSettings = function(){
+  const cid=getCid(); if(!cid) return;
+  shStarSetRender();
+  document.getElementById('sh-starset-modal').classList.remove('hidden');
+};
+W.shStarSetClose = function(){ document.getElementById('sh-starset-modal').classList.add('hidden'); };
+W.shStarSetRender = function(){
+  const cid=getCid(); if(!cid) return;
+  const cd=starCourseData(cid);
+  const sets = cd.sets || [];
+  const container = document.getElementById('sh-starset-list');
+  if(!container) return;
+  
+  if(!sets.length){
+    container.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:20px">ยังไม่มีเซ็ทกลุ่ม</div>';
+    return;
+  }
+  
+  container.innerHTML = sets.map(s => {
+    const isActive = s.id === cd.currentSetId;
+    return `<div class="sh-starset-card ${isActive?'sh-starset-active':''}">
+      <div style="cursor:pointer;flex:1" onclick="shStarSelectSet('${s.id}')">
+        <div class="sh-starset-name">${s.name} ${isActive?'<span style="font-size:10px;background:#f59e0b;color:#fff;padding:2px 6px;border-radius:10px;margin-left:4px">ใช้งานอยู่</span>':''}</div>
+        <div style="font-size:11px;color:#64748b">${s.groups.length} กลุ่ม</div>
+      </div>
+      <button class="sh-del-group" onclick="shStarDelSet('${s.id}')">ลบ</button>
+    </div>`;
+  }).join('');
+};
+W.shStarSelectSet = function(sid){
+  const cid=getCid(); if(!cid) return;
+  const cd=starCourseData(cid);
+  cd.currentSetId = sid;
+  shStarSetRender();
+  shStarRender();
+};
+W.shStarAddSet = function(){
+  const inp = document.getElementById('sh-new-set-name');
+  const name = inp ? inp.value.trim() : '';
+  if(!name) return;
+  const cid=getCid(); if(!cid) return;
+  const cd=starCourseData(cid);
+  const newId = 'set_' + Date.now();
+  cd.sets.push({ id: newId, name: name, groups: [], weekStars: {} });
+  if(!cd.currentSetId) cd.currentSetId = newId;
+  if(inp) inp.value = '';
+  shStarSetRender();
+  shStarRender();
+};
+W.shStarDelSet = function(sid){
+  const cid=getCid(); if(!cid) return;
+  confirm2('ยืนยันการลบ','ต้องการลบเซ็ทกลุ่มนี้และข้อมูลดาวทั้งหมดในเซ็ทนี้ใช่หรือไม่?',()=>{
+    const cd=starCourseData(cid);
+    cd.sets = cd.sets.filter(s => s.id !== sid);
+    if(cd.currentSetId === sid) cd.currentSetId = cd.sets.length > 0 ? cd.sets[0].id : null;
+    shStarSetRender();
+    shStarRender();
+  });
 };
 
 // ── Grade preset patch (safety wrapper) ─────────────────────────
