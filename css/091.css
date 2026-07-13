@@ -62,11 +62,6 @@
 .sh-week-row input, .sh-week-row select {
   padding:6px 10px; border:1px solid #e2e8f0; border-radius:8px; font-size:14px; background:#f8fafc;
 }
-@media (max-width: 640px) {
-  #sh-star-selectors-row { flex-direction: column !important; align-items: stretch !important; }
-  #sh-star-selectors-row > div { flex: none !important; min-width: auto !important; }
-  #sh-star-selectors-row select { width: 100% !important; }
-}
 .sh-bonus-table { width:100%; border-collapse:collapse; font-size:14px; }
 .sh-bonus-table th { background:#f1f5f9; padding:8px 10px; font-weight:700; color:#475569; text-align:left; }
 .sh-bonus-table td { padding:8px 10px; border-bottom:1px solid #f8fafc; }
@@ -129,34 +124,30 @@
 .shdd-week-item.shdd-week-scored { background: #1e3a8a !important; color: #ffffff !important; border-color: #1e3a8a !important; }
 .shdd-week-item.shdd-week-scored.shdd-selected { background: #4f46e5 !important; border-color: #4338ca !important; }
 
-.sh-btn-settings-small {
-  background: #f1f5f9;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
-  padding: 4px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.2s;
+/* ── Star Group: Multi-set UI Extensions ── */
+.sh-star-top-row { display: flex; gap: 12px; margin-bottom: 16px; align-items: flex-end; }
+.sh-star-select-item { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.sh-star-select-item label { font-size: 12px; font-weight: 800; color: #64748b; display: flex; align-items: center; gap: 4px; }
+.sh-star-select-item select { width: 100%; padding: 10px 12px; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 14px; font-weight: 700; color: #1e293b; background: #f8fafc; cursor: pointer; outline: none; transition: border-color 0.2s; }
+.sh-star-select-item select:focus { border-color: #4f46e5; }
+
+@media (max-width: 640px) {
+  .sh-star-top-row { flex-direction: column; gap: 10px; }
 }
-.sh-btn-settings-small:hover {
-  background: #e2e8f0;
-  color: #334155;
-}
-.sh-starset-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  margin-bottom: 8px;
-}
-.sh-starset-name { font-weight: 700; color: #1e293b; font-size: 14px; }
-.sh-starset-active { border-color: #f59e0b; background: #fffbeb; }
-.sh-starset-active .sh-starset-name { color: #b45309; }
+
+.sh-starset-card { background: #fff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+.sh-starset-card:hover { border-color: #cbd5e1; background: #f8fafc; }
+.sh-starset-info { display: flex; flex-direction: column; gap: 2px; }
+.sh-starset-name { font-weight: 800; color: #1e293b; font-size: 15px; }
+.sh-starset-meta { font-size: 12px; color: #64748b; font-weight: 500; }
+.sh-starset-actions { display: flex; gap: 8px; }
+
+.sh-btn-purple-sm { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; padding: 6px 12px; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+.sh-btn-purple-sm:hover { background: #ede9fe; }
+.sh-btn-red-sm { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 6px 12px; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+.sh-btn-red-sm:hover { background: #fee2e2; }
+
+/* Management Modal inside Set */
+.sh-group-manage-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; }
+.sh-group-manage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.sh-group-manage-name { font-weight: 800; color: #1e293b; font-size: 14px; }
