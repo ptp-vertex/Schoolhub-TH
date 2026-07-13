@@ -6,22 +6,27 @@
   var MIN_SHOW_MS = 250;
   var SAFETY_MS   = 6000;
 
-  // FIX: เดิมสปินเนอร์ถูกแทรกเป็น "ลูกตัวแรก" ของ modal (modal.insertBefore(sp, modal.firstChild))
-  // แต่ window.openModal ต้นฉบับ (007.js) มีโค้ด `const box = m.children[0];` สมมติว่าลูกตัวแรก
-  // ของ modal คือกล่องป็อปอัพเสมอ แล้วใส่ class scale-95/opacity-0 + transition ให้ตัวนั้น
-  // พอสปินเนอร์แซงมาเป็น children[0] แทน โค้ดเดิมเลยไปหยิบ "สปินเนอร์" ไปใส่ class เข้าฉากแทนกล่องจริง
-  // ทำให้สปินเนอร์เพี้ยน (เล็ก/เบี้ยว/ไม่เต็มจอ) และไม่ครอบพื้นหลังเฟดดำแบบที่ควรเป็น
+  // ปัญหาที่เจอมาแล้ว 2 รอบ และวิธีแก้สุดท้ายที่ใช้อยู่ตอนนี้:
   //
-  // วิธีแก้: ไม่แทรกสปินเนอร์เข้าไปเป็นลูกของ modal อีกต่อไป แต่ต่อเข้า document.body เป็น overlay
-  // อิสระของตัวเอง (fixed inset:0 เต็มจอเสมอ ไม่ขึ้นกับโครงสร้างลูกของ modal) แล้วคุม z-index ให้อยู่
-  // เหนือพื้นหลังเฟดดำของ modal แต่อยู่ใต้กล่องป็อปอัพจริงเสมอ วิธีนี้ modal.children[0] จะยังคงเป็น
-  // กล่องป็อปอัพจริงเหมือนเดิมทุกกรณี ไม่ถูกรบกวน
+  // รอบ 1: แทรกสปินเนอร์เป็น "ลูกตัวแรก" ของ modal (insertBefore ... modal.firstChild)
+  //   -> window.openModal ต้นฉบับ (007.js) มีโค้ด `const box = m.children[0];` ที่สมมติว่าลูกตัวแรก
+  //      คือกล่องป็อปอัพเสมอ แล้วใส่ class scale-95/opacity-0 + transition ให้ตัวนั้น
+  //      พอสปินเนอร์แซงมาเป็น children[0] แทน เลยโดนใส่ class เข้าฉากผิดตัว ทำให้สปินเนอร์เพี้ยน
+  //
+  // รอบ 2: ย้ายสปินเนอร์ออกไปต่อกับ document.body แยกจาก modal ไปเลย เพื่อเลี่ยงปัญหารอบ 1
+  //   -> แต่ modal มี backdrop-blur (เบลอ/มืดพื้นหลัง) ของตัวเอง ซึ่ง blur จะบังทุกอย่างที่อยู่
+  //      "ข้างหลัง/ใต้" มันในลำดับการวาดภาพ พอสปินเนอร์อยู่นอก modal มันเลยโดนเบลอจนมองไม่เห็น
+  //
+  // วิธีแก้สุดท้าย: แทรกสปินเนอร์กลับเข้าไปเป็นลูกของ modal เหมือนเดิม (จะได้ไม่โดน backdrop-blur บัง)
+  // แต่แทรกเป็น "ลูกตัวสุดท้าย" (ท้ายสุด ไม่ใช่ตัวแรก) เพื่อไม่ให้กระทบ modal.children[0] ที่โค้ด
+  // openModal ต้นฉบับใช้อ้างอิงกล่องป็อปอัพ แล้วบังคับกล่องป็อปอัพให้มี z-index สูงกว่าสปินเนอร์ตรงๆ
+  // ผ่าน JS (ensureBoxAboveSpinner) แทนการพึ่ง CSS sibling-selector ซึ่งเปราะบางถ้าลำดับ DOM เปลี่ยน
 
   function getModalBox(modal){
     if(!modal) return null;
     for(var i=0;i<modal.children.length;i++){
       var c = modal.children[i];
-      if(c.nodeType === 1) return c;
+      if(c.nodeType === 1 && !c.classList.contains('schoolhub-modal-mini-spinner')) return c;
     }
     return null;
   }
@@ -34,27 +39,31 @@
     return rect.width > 0 && rect.height > 0;
   }
 
-  function getModalZIndex(modal){
-    try{
-      var z = parseInt(getComputedStyle(modal).zIndex, 10);
-      if(!isNaN(z)) return z;
-    }catch(e){}
-    return 900000;
+  // บังคับให้กล่องป็อปอัพจริง (children[0] ของ modal) ลอยอยู่เหนือสปินเนอร์เสมอด้วย z-index ที่ชัดเจน
+  // ผ่าน JS ตรงๆ (ไม่พึ่ง CSS sibling-selector ซึ่งพังง่ายถ้าลำดับ DOM เปลี่ยน)
+  function ensureBoxAboveSpinner(box){
+    if(!box) return;
+    var cs;
+    try{ cs = getComputedStyle(box); }catch(e){ cs = null; }
+    if(!box.style.position && (!cs || cs.position === 'static')) box.style.position = 'relative';
+    var curZ = parseInt((cs && cs.zIndex) || box.style.zIndex, 10);
+    if(isNaN(curZ) || curZ < 1) box.style.zIndex = '1';
   }
 
   function showSpinner(modal){
     if(!modal) return;
-    if(modal.__schoolhubSpinnerEl && document.body.contains(modal.__schoolhubSpinnerEl)) return;
+    if(modal.__schoolhubSpinnerEl && modal.contains(modal.__schoolhubSpinnerEl)) return;
 
     var sp = document.createElement('div');
     sp.className = 'schoolhub-modal-mini-spinner';
     sp.innerHTML = '<div class="sh-spin"></div><span>กำลังโหลด...</span>';
-    var z = getModalZIndex(modal);
-    // ตั้งต่ำกว่า modal 1 ระดับ: ตอน modal ยัง hidden อยู่ (ยังไม่ paint) สปินเนอร์จะเห็นเต็มจอ
-    // พอ modal โผล่ขึ้นมา (พื้นหลังเฟดดำ + กล่องป็อปอัพ) จะซ้อนทับบังสปินเนอร์ไปเองตามธรรมชาติ
-    sp.style.zIndex = String(z - 1);
-    document.body.appendChild(sp);
+    // สำคัญ: ต้องอยู่ "ข้างใน" modal (ไม่ใช่ body) เพราะ modal มี backdrop-blur ของตัวเอง
+    // ถ้าสปินเนอร์อยู่นอก/ข้างหลัง modal จะโดน backdrop-blur เบลอ/บังจนมองไม่เห็น
+    // และต้องแทรกเป็น "ลูกตัวสุดท้าย" (ไม่ใช่ตัวแรก) เพื่อไม่ให้ modal.children[0] เพี้ยนไปเป็นสปินเนอร์
+    // (โค้ด openModal ต้นฉบับใช้ children[0] อ้างอิงกล่องป็อปอัพสำหรับ animation ตอนเปิด)
+    modal.appendChild(sp);
     modal.__schoolhubSpinnerEl = sp;
+    ensureBoxAboveSpinner(getModalBox(modal));
 
     var shownAt = Date.now();
     var removed = false;
