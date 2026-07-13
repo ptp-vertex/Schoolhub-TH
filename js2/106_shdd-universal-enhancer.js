@@ -309,6 +309,17 @@ if(document.readyState==='loading'){
   document.addEventListener('DOMContentLoaded', function(){ convertAll(); setTimeout(convertAll,400); setTimeout(convertAll,1200); });
 } else { convertAll(); setTimeout(convertAll,400); setTimeout(convertAll,1200); }
 
+// Expose API for external scripts to force-rebuild UI
+window.schoolhubDDEnhancer = {
+  rebuild: function(id){
+    var sel = document.getElementById(id);
+    if(sel && sel._shddWrap && sel._shddPanel){
+      syncLabel(sel._shddWrap, sel);
+      buildOptions(sel._shddPanel, sel._shddWrap, sel);
+    }
+  }
+};
+
 })();
 
 // ── วางคะแนนหลายคนพร้อมกัน (Paste Scores) ────────────────────────────────────

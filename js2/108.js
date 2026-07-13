@@ -211,7 +211,28 @@ W.openBonusScoreModal = function(){
   if(!cid){ shAlert('กรุณาเลือกรายวิชา','กรุณาเปิดรายวิชาก่อนใช้งาน'); return; }
   initFields();
   ensureField(st().bonusScores,cid,{});
-  eid('sh-bonus-week').value=1;
+  const weekSel=eid('sh-bonus-week');
+  if(weekSel){
+    // ลบค่า HTML ที่เก็บไว้ใน dataset เพื่อบังคับให้ initStaticDropdowns ทำงานใหม่
+    weekSel.dataset.schoolhubFinalOptionsHtml='';
+    if(typeof window.initStaticDropdowns === 'function') window.initStaticDropdowns();
+
+    // Fallback: ถ้ายังไม่มี options ให้สร้างเอง
+    if(weekSel.options.length === 0){
+      let html='';
+      const maxW = (typeof window.getCurrentPlanWeekLimit === 'function') ? window.getCurrentPlanWeekLimit() : 20;
+      for(let i=1;i<=maxW;i++) html+='<option value="'+i+'">สัปดาห์ที่ '+i+'</option>';
+      weekSel.innerHTML=html;
+    }
+
+    weekSel.value=1;
+    // สั่ง Rebuild UI ให้ Enhancer วาดตัวเลือกใหม่
+    setTimeout(function(){
+      if(typeof window.schoolhubDDEnhancer === 'object' && typeof window.schoolhubDDEnhancer.rebuild === 'function'){
+        window.schoolhubDDEnhancer.rebuild('sh-bonus-week');
+      }
+    }, 10);
+  }
   shBonusRender();
   eid('sh-bonus-modal').classList.remove('hidden');
 };
@@ -267,7 +288,28 @@ W.openStarGroupModal = function(){
       return;
   }
   starCD(cid);
-  eid('sh-star-week').value=1;
+  const weekSel=eid('sh-star-week');
+  if(weekSel){
+    // ลบค่า HTML ที่เก็บไว้ใน dataset เพื่อบังคับให้ initStaticDropdowns ทำงานใหม่
+    weekSel.dataset.schoolhubFinalOptionsHtml='';
+    if(typeof window.initStaticDropdowns === 'function') window.initStaticDropdowns();
+
+    // Fallback: ถ้ายังไม่มี options ให้สร้างเอง
+    if(weekSel.options.length === 0){
+      let html='';
+      const maxW = (typeof window.getCurrentPlanWeekLimit === 'function') ? window.getCurrentPlanWeekLimit() : 20;
+      for(let i=1;i<=maxW;i++) html+='<option value="'+i+'">สัปดาห์ที่ '+i+'</option>';
+      weekSel.innerHTML=html;
+    }
+
+    weekSel.value=1;
+    // สั่ง Rebuild UI ให้ Enhancer วาดตัวเลือกใหม่
+    setTimeout(function(){
+      if(typeof window.schoolhubDDEnhancer === 'object' && typeof window.schoolhubDDEnhancer.rebuild === 'function'){
+        window.schoolhubDDEnhancer.rebuild('sh-star-week');
+      }
+    }, 10);
+  }
   shStarRender();
   eid('sh-star-modal').classList.remove('hidden');
 };
@@ -322,6 +364,8 @@ W.shStarSet=function(gid,count){
   const cur=cd.weekStars[weekKey][gid]||0;
   cd.weekStars[weekKey][gid]=(cur===count)?0:count;
   shStarRender();
+  // Auto-save ทันที
+  dbSave().catch(e => console.error('Auto-save star set failed:', e));
 };
 W.shStarAddGroup=function(){
   const inp=eid('sh-new-grp'); const name=(inp?inp.value.trim():'');
@@ -332,6 +376,8 @@ W.shStarAddGroup=function(){
   cd.groups.push({id:newGid,name,members:[]});
   if(inp) inp.value='';
   shStarRender();
+  // Auto-save ทันที
+  dbSave().catch(e => console.error('Auto-save add group failed:', e));
   // auto-scroll to the new group so teacher can immediately add members
   setTimeout(function(){
     var el=eid('sg-'+newGid);
@@ -340,10 +386,13 @@ W.shStarAddGroup=function(){
 };
 W.shStarDelGroup=function(gid){
   const cid=getCid(); if(!cid) return;
-  shConfirm('ยืนยันการลบ','ต้องการลบกลุ่มนี้ใช่หรือไม่?',function(){
+  shConfirm('ยืนยันการลบ','ต้องการลบกลุ่มนี้ใช่หรือไม่?',async function(){
     const cd=starCD(cid);
     cd.groups=cd.groups.filter(function(g){ return g.id!==gid; });
     shStarRender();
+    // Auto-save ทันที
+    await dbSave();
+    shAlert('ลบสำเร็จ','ลบกลุ่มเรียบร้อยแล้ว');
   });
 };
 W.shStarAddMember=function(gid){
@@ -355,6 +404,8 @@ W.shStarAddMember=function(gid){
   if(!grp.members) grp.members=[];
   if(!grp.members.includes(mid)) grp.members.push(mid);
   shStarRender();
+  // Auto-save ทันที
+  dbSave().catch(e => console.error('Auto-save add member failed:', e));
 };
 W.shStarRemoveMember=function(gid,mid){
   const cid=getCid(); if(!cid) return;
@@ -362,6 +413,8 @@ W.shStarRemoveMember=function(gid,mid){
   const grp=cd.groups.find(function(g){ return g.id===gid; }); if(!grp) return;
   grp.members=(grp.members||[]).filter(function(x){ return x!==mid; });
   shStarRender();
+  // Auto-save ทันที
+  dbSave().catch(e => console.error('Auto-save remove member failed:', e));
 };
 // NOTE: the old rank-based "แปลงดาวเป็นโบนัส" feature (r1/r2/r3 inputs inside
 // the star-group modal) has been retired and replaced by the new
