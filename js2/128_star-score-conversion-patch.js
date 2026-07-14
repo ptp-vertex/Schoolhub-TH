@@ -131,7 +131,7 @@
 
     var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
     var starSets = starCourseData.sets || [];
-    
+
     if (starSets.length === 0) {
       if (window.showCustomAlert) window.showCustomAlert('ไม่พบเซ็ทกลุ่ม','กรุณาสร้างเซ็ทกลุ่มนักเรียนก่อนแปลงคะแนน', true);
       return;
@@ -141,46 +141,62 @@
     if (!pop) {
       pop = document.createElement('div');
       pop.id = 'star-conversion-popup';
-      pop.className = 'fixed inset-0 z-[999999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4';
       document.body.appendChild(pop);
     }
+    // ใช้สไตล์ป็อปอัพมาตรฐานเดียวกับระบบโบนัส (sh-overlay/sh-modal-box) แต่ธีมสีเป็นของระบบดาว (ส้มอำพัน)
+    pop.className = 'sh-overlay';
 
     var setOptions = starSets.map((s, i) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
 
+    var plans = ((state.coursePlans && state.coursePlans[cid]) || []).slice().sort((a,b) => a.week - b.week);
+    var planOptions = plans.length
+      ? plans.map(p => `<option value="${p.id}">สัปดาห์ ${esc(p.week)} — ${esc(p.title)} (เต็ม ${esc(p.maxScore)})</option>`).join('')
+      : '<option value="">-- ยังไม่มีแผนคะแนนในวิชานี้ --</option>';
+
     pop.innerHTML = `
-      <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-        <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-amber-500 text-white">
-          <div><div class="font-black text-xl">แปลงคะแนนดาวกลุ่ม</div><div class="text-xs opacity-80">เฉลี่ยคะแนนตามลำดับดาวของกลุ่ม</div></div>
-          <button onclick="document.getElementById('star-conversion-popup').classList.add('hidden')" class="w-10 h-10 flex items-center justify-center hover:bg-white/20 rounded-full transition"><i class="fas fa-times"></i></button>
+      <div class="sh-modal-box" style="max-width:560px">
+        <div class="sh-modal-header" style="background:#d97706;border-bottom:none">
+          <h3 style="color:#fff"><i class="fas fa-star" style="margin-right:8px"></i>แปลงคะแนนดาวกลุ่ม</h3>
+          <button class="sh-modal-close" onclick="document.getElementById('star-conversion-popup').classList.add('hidden')" style="background:rgba(255,255,255,.2);border-color:transparent;color:#fff"><i class="fas fa-times"></i></button>
         </div>
-        <div class="p-6 overflow-y-auto flex-1 space-y-6">
-          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <label class="block text-xs font-black text-slate-500 mb-2 uppercase tracking-wider">เลือกเซตกลุ่ม</label>
-            <select id="conversion-set-id" class="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 font-bold focus:ring-2 focus:ring-amber-500 outline-none" onchange="window.updateConversionPreview()">
-              ${setOptions}
-            </select>
-          </div>
-          
-          <div class="grid grid-cols-2 gap-4">
-            <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-              <label class="block text-xs font-black text-emerald-600 mb-2 uppercase tracking-wider">คะแนนสูงสุด (ที่ 1)</label>
-              <input type="number" id="conv-max-score" class="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2 font-bold text-center" value="20" oninput="window.updateConversionPreview()">
-            </div>
-            <div class="bg-rose-50 p-4 rounded-2xl border border-rose-100">
-              <label class="block text-xs font-black text-rose-600 mb-2 uppercase tracking-wider">คะแนนต่ำสุด (โหล)</label>
-              <input type="number" id="conv-min-score" class="w-full bg-white border border-rose-200 rounded-xl px-4 py-2 font-bold text-center" value="10" oninput="window.updateConversionPreview()">
-            </div>
+        <div class="sh-modal-body">
+          <div class="sh-week-row">
+            <label><i class="fas fa-layer-group" style="color:#d97706;margin-right:4px"></i>เลือกเซตกลุ่ม</label>
+            <select id="conversion-set-id" style="flex:1;min-width:160px" onchange="window.updateConversionPreview()">${setOptions}</select>
           </div>
 
-          <div id="conversion-preview-list" class="space-y-2"></div>
+          <div class="sh-week-row">
+            <label><i class="fas fa-route" style="color:#d97706;margin-right:4px"></i>แปลงเข้า</label>
+            <select id="conversion-dest" style="flex:1;min-width:160px" onchange="window.onConversionDestChange()">
+              <option value="bonus">คะแนนโบนัส</option>
+              <option value="week">คะแนนในสัปดาห์ (แผนคะแนนที่มีอยู่)</option>
+            </select>
+          </div>
+
+          <div class="sh-week-row" id="conversion-plan-row" style="display:none">
+            <label><i class="fas fa-calendar-week" style="color:#d97706;margin-right:4px"></i>เลือกงาน</label>
+            <select id="conversion-plan-id" style="flex:1;min-width:160px" onchange="window.updateConversionPreview()">${planOptions}</select>
+          </div>
+
+          <div class="sh-week-row">
+            <label style="color:#059669">คะแนนสูงสุด (ที่ 1)</label>
+            <input type="number" id="conv-max-score" style="width:90px" value="20" oninput="window.updateConversionPreview()">
+            <label style="color:#e11d48">คะแนนต่ำสุด (โหล)</label>
+            <input type="number" id="conv-min-score" style="width:90px" value="10" oninput="window.updateConversionPreview()">
+          </div>
+
+          <table class="sh-bonus-table">
+            <thead><tr><th width="40" style="text-align:center">ลำดับ</th><th>กลุ่ม</th><th style="text-align:center">ดาวรวม</th><th style="text-align:center">คะแนนที่แปลง</th></tr></thead>
+            <tbody id="conversion-preview-list"></tbody>
+          </table>
         </div>
-        <div class="p-6 border-t border-slate-100 flex gap-3">
-          <button onclick="document.getElementById('star-conversion-popup').classList.add('hidden')" class="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition">ยกเลิก</button>
-          <button onclick="window.applyStarConversion()" class="flex-[2] py-3 bg-amber-500 text-white font-black rounded-2xl hover:bg-amber-600 shadow-lg shadow-amber-200 transition">บันทึกคะแนนลงช่องโบนัส</button>
+        <div class="sh-modal-footer">
+          <button class="sh-btn-cancel" onclick="document.getElementById('star-conversion-popup').classList.add('hidden')">ยกเลิก</button>
+          <button class="sh-btn-save-amber" onclick="window.applyStarConversion()"><i class="fas fa-save mr-1"></i>บันทึกคะแนน</button>
         </div>
       </div>
     `;
-    
+
     pop.classList.remove('hidden');
     window.updateConversionPreview();
    } catch(err) {
@@ -189,12 +205,33 @@
    }
   };
 
+  // สลับการแสดง "เลือกงาน" ตามปลายทางที่เลือก — เลือก "แปลงเข้าโบนัส" ไม่ต้องเลือกสัปดาห์/งาน
+  window.onConversionDestChange = function(){
+    var dest = document.getElementById('conversion-dest').value;
+    var row = document.getElementById('conversion-plan-row');
+    if (row) row.style.display = (dest === 'week') ? '' : 'none';
+    window.updateConversionPreview();
+  };
+
+
   window.updateConversionPreview = function(){
     var cid = window.currentActiveCourseId;
     var setId = document.getElementById('conversion-set-id').value;
-    var maxS = parseFloat(document.getElementById('conv-max-score').value) || 0;
+    var dest = document.getElementById('conversion-dest') ? document.getElementById('conversion-dest').value : 'bonus';
+    var maxInput = document.getElementById('conv-max-score');
+
+    // แปลงเข้าสัปดาห์: ล็อกคะแนนสูงสุดให้เท่ากับคะแนนเต็มของงานที่เลือกเสมอ (กันแปลงคะแนนเกินคะแนนเต็มของงานนั้น)
+    if (dest === 'week') {
+      var planId = document.getElementById('conversion-plan-id') ? document.getElementById('conversion-plan-id').value : '';
+      var plan = ((state.coursePlans && state.coursePlans[cid]) || []).find(p => p.id === planId);
+      if (plan) { maxInput.value = plan.maxScore; maxInput.setAttribute('readonly', 'readonly'); }
+    } else {
+      maxInput.removeAttribute('readonly');
+    }
+
+    var maxS = parseFloat(maxInput.value) || 0;
     var minS = parseFloat(document.getElementById('conv-min-score').value) || 0;
-    
+
     var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
     var starSets = starCourseData.sets || [];
     var currentSet = starSets.find(s => s.id === setId);
@@ -202,7 +239,7 @@
 
     var groups = currentSet.groups || [];
     var weekStars = currentSet.weekStars || {};
-    
+
     var groupData = groups.map(g => {
       var stars = 0;
       Object.keys(weekStars).forEach(wk => { stars += (weekStars[wk][g.id] || 0); });
@@ -234,24 +271,17 @@
       g.scaledScore = Math.round(g.scaledScore * 100) / 100;
     });
 
-    var previewHtml = `<div class="text-[10px] font-black text-slate-400 mb-2 uppercase">พรีวิวการแปลงคะแนน (เฉลี่ยตามลำดับกลุ่ม)</div>`;
-    previewHtml += groupData.map(g => `
-      <div class="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
-        <div class="flex items-center gap-3">
-          <div class="w-6 h-6 flex items-center justify-center bg-amber-100 text-amber-700 rounded-full text-[10px] font-black">${g.rank}</div>
-          <div class="min-w-0">
-            <div class="text-sm font-bold text-slate-700 truncate">${esc(g.name)}</div>
-            <div class="text-[10px] text-slate-400">${g.stars} ⭐</div>
-          </div>
-        </div>
-        <div class="text-right">
-          <div class="text-sm font-black text-emerald-600">${window.formatScoreDisplay(g.scaledScore, 2)}</div>
-          <div class="text-[9px] text-slate-400 uppercase font-bold">คะแนนโบนัส</div>
-        </div>
-      </div>
+    var previewHtml = groupData.map(g => `
+      <tr>
+        <td style="text-align:center;font-weight:800;color:#92400e">#${g.rank}</td>
+        <td style="font-weight:700;color:#1e293b">${esc(g.name)}</td>
+        <td style="text-align:center">${g.stars} ⭐</td>
+        <td style="text-align:center;font-weight:800;color:#d97706">${window.formatScoreDisplay(g.scaledScore, 2)}</td>
+      </tr>
     `).join('');
 
-    document.getElementById('conversion-preview-list').innerHTML = previewHtml;
+    var listEl = document.getElementById('conversion-preview-list');
+    if (listEl) listEl.innerHTML = previewHtml;
     window.__currentGroupData = groupData;
   };
 
@@ -261,28 +291,60 @@
 
     var groupData = window.__currentGroupData;
     var setId = document.getElementById('conversion-set-id').value;
+    var dest = document.getElementById('conversion-dest') ? document.getElementById('conversion-dest').value : 'bonus';
     var starCourseData = (state.starGroups && state.starGroups[cid]) || {};
     var currentSet = (starCourseData.sets || []).find(s => s.id === setId);
     if (!currentSet) return;
 
-    var week = 'Bonus-Stars-' + setId;
-    if (!state.bonusScores) state.bonusScores = {};
-    if (!state.bonusScores[cid]) state.bonusScores[cid] = {};
-    if (!state.bonusScores[cid][week]) state.bonusScores[cid][week] = {};
-
-    groupData.forEach(g => {
-      var groupObj = currentSet.groups.find(x => x.id === g.id);
-      if (groupObj && groupObj.members) {
-        groupObj.members.forEach(stId => {
-          state.bonusScores[cid][week][stId] = g.scaledScore;
-        });
+    if (dest === 'week') {
+      // แปลงเข้าคะแนนของสัปดาห์/งานที่มีอยู่จริง (state.scores ผูกกับ courseId + week + title ของแผนคะแนน)
+      var planId = document.getElementById('conversion-plan-id') ? document.getElementById('conversion-plan-id').value : '';
+      var plan = ((state.coursePlans && state.coursePlans[cid]) || []).find(p => p.id === planId);
+      if (!plan) {
+        if (window.showCustomAlert) window.showCustomAlert('กรุณาเลือกงาน', 'กรุณาเลือกสัปดาห์ / งานที่จะนำคะแนนไปใส่ก่อนบันทึก', true);
+        return;
       }
-    });
+      if (!state.scores) state.scores = [];
+      var idx = state.scores.findIndex(s => s.courseId === cid && String(s.week) === String(plan.week) && s.title === plan.title);
+      var recordsObj = idx !== -1 ? Object.assign({}, state.scores[idx].records) : {};
+
+      groupData.forEach(g => {
+        var groupObj = currentSet.groups.find(x => x.id === g.id);
+        if (groupObj && groupObj.members) {
+          groupObj.members.forEach(stId => {
+            recordsObj[stId] = Math.max(0, Math.min(g.scaledScore, plan.maxScore));
+          });
+        }
+      });
+
+      if (idx !== -1) {
+        state.scores[idx].records = recordsObj;
+        state.scores[idx].maxScore = plan.maxScore;
+        state.scores[idx].savedAt = Date.now();
+      } else {
+        state.scores.push({ id: Date.now().toString(), courseId: cid, week: plan.week, title: plan.title, maxScore: plan.maxScore, records: recordsObj, savedAt: Date.now() });
+      }
+    } else {
+      // แปลงเข้าคะแนนโบนัส (พฤติกรรมเดิม)
+      var week = 'Bonus-Stars-' + setId;
+      if (!state.bonusScores) state.bonusScores = {};
+      if (!state.bonusScores[cid]) state.bonusScores[cid] = {};
+      if (!state.bonusScores[cid][week]) state.bonusScores[cid][week] = {};
+
+      groupData.forEach(g => {
+        var groupObj = currentSet.groups.find(x => x.id === g.id);
+        if (groupObj && groupObj.members) {
+          groupObj.members.forEach(stId => {
+            state.bonusScores[cid][week][stId] = g.scaledScore;
+          });
+        }
+      });
+    }
 
     if (typeof window.saveStateToDB === 'function') await window.saveStateToDB();
-    
+
     document.getElementById('star-conversion-popup').classList.add('hidden');
-    if (window.showCustomAlert) window.showCustomAlert('สำเร็จ','แปลงคะแนนและบันทึกโบนัสเรียบร้อยแล้ว');
+    if (window.showCustomAlert) window.showCustomAlert('สำเร็จ', dest === 'week' ? 'แปลงคะแนนและบันทึกลงในงานที่เลือกเรียบร้อยแล้ว' : 'แปลงคะแนนและบันทึกโบนัสเรียบร้อยแล้ว');
     if (typeof window.renderCourseOverview === 'function') window.renderCourseOverview();
   };
 
