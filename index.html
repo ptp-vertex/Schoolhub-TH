@@ -3056,7 +3056,7 @@ document.addEventListener('paste', function(e){
 <link id="schoolhub-canonical-12-rights-style" rel="stylesheet" href="css/082_schoolhub-canonical-12-rights-style.css">
 
 <link id="schoolhub-edit-delete-permission-style" rel="stylesheet" href="css/083_schoolhub-edit-delete-permission-style.css">
-<script type="module" id="schoolhub-canonical-12-rights-script" src="js1/096_schoolhub-canonical-12-rights-script.js"></script>
+<script type="module" id="schoolhub-canonical-12-rights-script" src="js1/096_schoolhub-canonical-12-rights-script.js?v=20260714140000"></script>
 
 
 <!-- SchoolHub PATCH: withdrawn score/grade null guard (เฉพาะคะแนน/เกรดนักเรียนลาออก) -->
@@ -3548,3 +3548,10 @@ document.addEventListener('paste', function(e){
      - แก้ส่วน "เรียนรู้เพิ่มเติม" ไม่แสดงในตั้งค่า ===== -->
 <script id="schoolhub-learn-more-fixes" src="js2/126_schoolhub-learn-more-fixes.js"></script>
 <!-- ===== END PATCH: Learn More Fixes ===== -->
+
+<!-- ===== PATCH: ปุ่ม "บันทึก" ทุกปุ่มทั้งระบบ ขึ้นสัญลักษณ์กำลังโหลดทันทีตอนกด =====
+     - ครอบคลุมทุกปุ่ม/ลิงก์ที่มีคำว่า "บันทึก" อยู่ในข้อความ (button, a, input submit/button, role=button)
+     - ใส่สปินเนอร์แทรกหน้าข้อความเดิมทันทีที่กด (capture phase มาก่อน handler เดิมเสมอ) และปิดปุ่มชั่วคราวกันกดซ้ำ
+     - คืนสถานะปุ่มอัตโนมัติทันทีที่ป็อปอัพแจ้งผล (สำเร็จ/ผิดพลาด) ขึ้น หรืออย่างช้าไม่เกิน 6 วินาที กันปุ่มค้าง ===== -->
+<script id="schoolhub-save-button-instant-loader-script" src="js2/131_schoolhub-save-button-instant-loader-script.js"></script>
+<!-- ===== END PATCH: Save Button Instant Loader ===== -->
