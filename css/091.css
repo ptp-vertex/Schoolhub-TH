@@ -124,6 +124,24 @@
 .shdd-week-item.shdd-week-scored { background: #1e3a8a !important; color: #ffffff !important; border-color: #1e3a8a !important; }
 .shdd-week-item.shdd-week-scored.shdd-selected { background: #4f46e5 !important; border-color: #4338ca !important; }
 
+/* ── Week status coloring: ระบบดาว (ส้มเข้ม) / ระบบโบนัส (เขียวเข้ม) ── */
+/* สัปดาห์ที่ให้ดาวไปแล้ว */
+.shdd-week-item.shdd-week-star-scored { background: #9a3412 !important; color: #ffffff !important; border-color: #9a3412 !important; }
+.shdd-week-item.shdd-week-star-scored:hover { background: #7c2d12 !important; }
+/* ยังคงเป็นส้มเข้ม (เข้มขึ้นอีกนิด) ตอนที่สัปดาห์นั้นถูกเลือกอยู่ด้วย แทนที่จะกลายเป็นสีม่วงปกติ */
+.shdd-week-item.shdd-week-star-scored.shdd-selected { background: #7c2d12 !important; border-color: #6c2e12 !important; }
+
+/* สัปดาห์ที่ให้คะแนนโบนัสไปแล้ว */
+.shdd-week-item.shdd-week-bonus-scored { background: #166534 !important; color: #ffffff !important; border-color: #166534 !important; }
+.shdd-week-item.shdd-week-bonus-scored:hover { background: #14532d !important; }
+.shdd-week-item.shdd-week-bonus-scored.shdd-selected { background: #14532d !important; border-color: #0f3d21 !important; }
+
+/* ── ปุ่มปิด (trigger button) ก็ไล่สีตามสัปดาห์ที่กำลังเลือกอยู่เหมือนกัน ── */
+.shdd-btn.shdd-btn-star-scored { background: #fff7ed !important; color: #9a3412 !important; border-color: #fdba74 !important; font-weight: 700; }
+.shdd-btn.shdd-btn-bonus-scored { background: #f0fdf4 !important; color: #166534 !important; border-color: #86efac !important; font-weight: 700; }
+.shdd-btn.shdd-btn-scored { background: #eff6ff !important; color: #1e3a8a !important; border-color: #93c5fd !important; font-weight: 700; }
+.shdd-btn.shdd-btn-planned { background: #f0f9ff !important; color: #0369a1 !important; border-color: #7dd3fc !important; }
+
 /* ── Star Group: Multi-set UI Extensions ── */
 .sh-star-top-row { display: flex; gap: 12px; margin-bottom: 16px; align-items: flex-end; }
 .sh-star-select-item { flex: 1; display: flex; flex-direction: column; gap: 4px; }
