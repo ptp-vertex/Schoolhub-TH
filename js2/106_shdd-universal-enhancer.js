@@ -37,9 +37,16 @@ function getWeekGridStatus(sel, cid, week){
       return hasBonus ? 'scored' : 'none';
     }
     // สัปดาห์ที่ให้ดาวกลุ่มไว้แล้ว → ถือว่า "scored"
+    // NOTE: ข้อมูลดาวถูกย้ายไปเก็บใน starGroups[cid].sets[i].weekStars (multi-set)
+    // มานานแล้ว ของเดิมตรงนี้ยังมองหาที่ starGroups[cid].weekStars (ตำแหน่งเก่าก่อน
+    // ย้ายเป็น multi-set) ซึ่งไม่มีการเขียนข้อมูลลงจุดนั้นอีกต่อไป เลยไม่เจอว่าบันทึกแล้วเสมอ
     if(sel.id === 'sh-star-week'){
-      var ws = (st.starGroups && st.starGroups[cid] && st.starGroups[cid].weekStars && st.starGroups[cid].weekStars['w'+week]) || {};
-      var hasStars = Object.keys(ws).some(function(k){ return Number(ws[k])>0; });
+      var starCd = (st.starGroups && st.starGroups[cid]) || {};
+      var starSets = starCd.sets || [];
+      var hasStars = starSets.some(function(s){
+        var ws = (s.weekStars && s.weekStars['w'+week]) || {};
+        return Object.keys(ws).some(function(k){ return Number(ws[k])>0; });
+      });
       return hasStars ? 'scored' : 'none';
     }
     var plans = (st.coursePlans && st.coursePlans[cid]) || [];
