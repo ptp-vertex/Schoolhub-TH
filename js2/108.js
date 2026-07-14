@@ -393,7 +393,7 @@ W.shStarRender=function(){
     return `<div class="sh-group-card" id="sg-${g.id}">
       <div class="sh-group-top"><span class="sh-group-name">${rankEmoji} ${g.name}</span>
       <div style="display:flex;gap:6px;align-items:center">
-      <span class="sh-group-star-count">⭐ ${g.stars} ดาว</span></div></div>
+      <span class="sh-group-star-count">⭐ ${g.stars}</span></div></div>
       <div class="sh-stars-row">${starsHtml}</div>
       <div class="sh-member-chips" style="margin-top:8px">${memberNames}</div>
       </div>`;

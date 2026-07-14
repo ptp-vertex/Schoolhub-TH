@@ -179,7 +179,7 @@ W.shStarRender=function(){
           <span class="sh-group-name">${rankEmoji} ${esc(g.name)}</span>
           <span style="font-size:11px;color:#92400e;opacity:0.8;font-weight:600">${memberNames.length > 0 ? memberNames.join(', ') : 'ไม่มีสมาชิก'}</span>
         </div>
-        <span class="sh-group-star-count">⭐ ${g.stars} ดาว</span>
+        <span class="sh-group-star-count">⭐ ${g.stars}</span>
       </div>
       <div class="sh-stars-row">${starsHtml}</div>
     </div>`;

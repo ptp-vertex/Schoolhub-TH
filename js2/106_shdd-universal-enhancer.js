@@ -40,12 +40,20 @@ function getWeekGridStatus(sel, cid, week){
     // NOTE: ข้อมูลดาวถูกย้ายไปเก็บใน starGroups[cid].sets[i].weekStars (multi-set)
     // มานานแล้ว ของเดิมตรงนี้ยังมองหาที่ starGroups[cid].weekStars (ตำแหน่งเก่าก่อน
     // ย้ายเป็น multi-set) ซึ่งไม่มีการเขียนข้อมูลลงจุดนั้นอีกต่อไป เลยไม่เจอว่าบันทึกแล้วเสมอ
+    //
+    // FIX: weekStars[weekKey] เก็บด้วย "group id" เป็น key เมื่อกลุ่มถูกลบหรือสร้างใหม่ทับ
+    // ของเก่า key เก่าที่ค่า > 0 ค้างอยู่จะไม่ถูกลบไปด้วย (orphaned entry) ของเดิมตรงนี้เช็ค
+    // แค่ "มี key ไหนในอ็อบเจกต์ที่ค่า > 0" โดยไม่สนว่ากลุ่มนั้นยังมีอยู่จริงไหม ทำให้สัปดาห์ที่
+    // กลุ่มปัจจุบันทุกกลุ่มมี 0 ดาว แต่มีข้อมูลเก่าตกค้างของกลุ่มที่ถูกลบไปแล้วยังโชว์เป็น
+    // "บันทึกแล้ว" (สีเข้ม) อยู่ดี ต้องกรองด้วยว่า key นั้นตรงกับกลุ่มที่ยังมีอยู่จริง
     if(sel.id === 'sh-star-week'){
       var starCd = (st.starGroups && st.starGroups[cid]) || {};
       var starSets = starCd.sets || [];
       var hasStars = starSets.some(function(s){
         var ws = (s.weekStars && s.weekStars['w'+week]) || {};
-        return Object.keys(ws).some(function(k){ return Number(ws[k])>0; });
+        var liveGroupIds = {};
+        (s.groups||[]).forEach(function(g){ liveGroupIds[g.id] = true; });
+        return Object.keys(ws).some(function(k){ return liveGroupIds[k] && Number(ws[k])>0; });
       });
       return hasStars ? 'scored' : 'none';
     }
