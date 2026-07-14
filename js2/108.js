@@ -320,6 +320,17 @@ function starCD(cid){
 }
 // NOTE: openStarGroupModal is handled by 107.js (Multi-Set version).
 // This stub ensures plan check still works but defers rendering to 107.js.
+// FIX: this used to unconditionally overwrite window.openStarGroupModal even
+// though 107.js (loaded earlier) already defines the correct Multi-Set
+// version. Because both files assign to the *same* global name, the
+// self-referential checks below (`window.X !== W.X`) can never catch that —
+// by the time this function actually runs, window.openStarGroupModal IS this
+// very function (108.js loaded last), so the "already defined by 107.js"
+// branch never fired and this broken legacy fallback ran instead. Wrapping
+// the whole assignment so it only applies when nothing else already defined
+// it restores 107.js's real Multi-Set behavior (set selector, group add/
+// remove member, etc).
+if (typeof W.openStarGroupModal !== 'function') {
 W.openStarGroupModal = function(){
   const cid=getCid();
   if(!cid){ shAlert('กรุณาเลือกรายวิชา','กรุณาเปิดรายวิชาก่อนใช้งาน'); return; }
@@ -327,25 +338,7 @@ W.openStarGroupModal = function(){
       if(typeof window.showCustomAlert === 'function') window.showCustomAlert('ไม่มีสิทธิ์ใช้งาน','แผนปัจจุบันไม่รองรับระบบดาว กรุณาอัปเกรดแผน', true);
       return;
   }
-  // Use 107.js multi-set version if available
-  if(typeof window.starCourseData === 'function'){
-    // Migrate if needed (call starCD for backward compat, but 107.js handles it)
-    if(!st().starGroups[cid] || (!st().starGroups[cid].sets && !st().starGroups[cid].groups)) {
-      starCD(cid);
-    }
-  } else {
-    starCD(cid);
-  }
-  // If 107.js version exists, use it directly
-  if(typeof window._shStarOpenStarGroupModal107 === 'function'){
-    window._shStarOpenStarGroupModal107();
-    return;
-  }
-  // Otherwise use the 107.js openStarGroupModal directly
-  if(typeof window.openStarGroupModal === 'function' && window.openStarGroupModal !== W.openStarGroupModal){
-    // 107.js already defined it, just call it
-    return;
-  }
+  starCD(cid);
   // Fallback: use initStaticDropdowns for week selector (like bonus modal)
   const weekSel=eid('sh-star-week');
   if(weekSel && weekSel.options.length === 0){
@@ -360,20 +353,18 @@ W.openStarGroupModal = function(){
     }
     // DO NOT auto-select week 1 — let user choose manually
   }
-  // Delegate to 107.js shStarRender if available
-  if(typeof window.shStarRender === 'function'){
-    window.shStarRender();
-  } else {
-    shStarRender();
-  }
+  shStarRender();
   eid('sh-star-modal').classList.remove('hidden');
 };
+}
+if (typeof W.shStarClose !== 'function') {
 W.shStarClose=function(){ eid('sh-star-modal').classList.add('hidden'); };
+}
 // NOTE: shStarRender, shStarSet, shStarAddGroup, shStarDelGroup, shStarAddMember, shStarRemoveMember
 // are all handled by 107.js (Multi-Set version). These stubs prevent errors but
 // delegate to 107.js implementations when available.
+if (typeof W.shStarRender !== 'function') {
 W.shStarRender=function(){
-  if(typeof window.shStarRender === 'function' && window.shStarRender !== W.shStarRender) return;
   // Fallback for when 107.js isn't loaded yet
   const cid=getCid(); if(!cid) return;
   const weekSel=eid('sh-star-week');
@@ -408,11 +399,12 @@ W.shStarRender=function(){
       </div>`;
   }).join('');
 };
+}
 function escSafe(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // NOTE: The following star group functions are stubs that delegate to 107.js.
 // 107.js defines the real Multi-Set implementations.
+if (typeof W.shStarSet !== 'function') {
 W.shStarSet=function(gid,count){
-  if(typeof window.shStarSet === 'function' && window.shStarSet !== W.shStarSet) return;
   const cid=getCid(); if(!cid) return;
   const weekSel=eid('sh-star-week');
   const week=weekSel ? parseInt(weekSel.value) : NaN;
@@ -426,8 +418,9 @@ W.shStarSet=function(gid,count){
   shStarRender();
   dbSave().catch(e => console.error('Auto-save star set failed:', e));
 };
+}
+if (typeof W.shStarAddGroup !== 'function') {
 W.shStarAddGroup=function(){
-  if(typeof window.shStarAddGroup === 'function' && window.shStarAddGroup !== W.shStarAddGroup) return;
   const inp=eid('sh-new-grp-name'); const name=(inp?inp.value.trim():'');
   if(!name){ shAlert('กรุณากรอกชื่อกลุ่ม','กรุณากรอกชื่อกลุ่มก่อนเพิ่ม'); return; }
   const cid=getCid(); if(!cid) return;
@@ -444,8 +437,9 @@ W.shStarAddGroup=function(){
     if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
   },60);
 };
+}
+if (typeof W.shStarDelGroup !== 'function') {
 W.shStarDelGroup=function(gid){
-  if(typeof window.shStarDelGroup === 'function' && window.shStarDelGroup !== W.shStarDelGroup) return;
   const cid=getCid(); if(!cid) return;
   shConfirm('ยืนยันการลบ','ต้องการลบกลุ่มนี้ใช่หรือไม่?',async function(){
     const cd=starCD(cid);
@@ -457,8 +451,9 @@ W.shStarDelGroup=function(gid){
     shAlert('ลบสำเร็จ','ลบกลุ่มเรียบร้อยแล้ว');
   });
 };
+}
+if (typeof W.shStarAddMember !== 'function') {
 W.shStarAddMember=function(gid, mid){
-  if(typeof window.shStarAddMember === 'function' && window.shStarAddMember !== W.shStarAddMember) return;
   const cid=getCid(); if(!cid) return;
   mid = mid || (function(){ var sel=eid('sh-mem-sel-'+gid); return sel?sel.value:''; })();
   if(!mid) return;
@@ -471,8 +466,9 @@ W.shStarAddMember=function(gid, mid){
   shStarRender();
   dbSave().catch(e => console.error('Auto-save add member failed:', e));
 };
+}
+if (typeof W.shStarRemoveMember !== 'function') {
 W.shStarRemoveMember=function(gid,mid){
-  if(typeof window.shStarRemoveMember === 'function' && window.shStarRemoveMember !== W.shStarRemoveMember) return;
   const cid=getCid(); if(!cid) return;
   const cd=starCD(cid);
   const currentSet = (cd.sets||[]).find(function(s){ return s.id===cd.currentSetId; });
@@ -482,6 +478,7 @@ W.shStarRemoveMember=function(gid,mid){
   shStarRender();
   dbSave().catch(e => console.error('Auto-save remove member failed:', e));
 };
+}
 // NOTE: the old rank-based "แปลงดาวเป็นโบนัส" feature (r1/r2/r3 inputs inside
 // the star-group modal) has been retired and replaced by the new
 // "แปลงดาวเป็นคะแนน" feature accessible via double-click on the ⭐ดาว column
