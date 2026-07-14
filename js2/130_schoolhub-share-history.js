@@ -1,12 +1,18 @@
 /* ================================================================
-   SchoolHub — Share History System (นักเรียน) V5
+   SchoolHub — Share History System (นักเรียน) V6
    130_schoolhub-share-history.js
 
-   การแก้ไข V5 (Final):
+   การแก้ไข V6 (Final):
    1. ใช้ Local History (ใน state) เป็นหลักเพื่อให้ข้อมูลขึ้นทันทีและแม่นยำ
    2. ดึงข้อมูลจาก Cloud (Firebase) มาเสริม โดยใช้ Query ที่เรียบง่ายที่สุด
    3. จัดการกรณี Permission Denied หรือ Missing Index ให้แสดงผลบอกผู้ใช้
    4. ปรับปรุง z-index และปุ่มจัดการให้สมบูรณ์
+   5. [ใหม่] ปุ่ม "ปิดใช้งาน" ลบลิงก์จริงบน Firebase + ล็อกไว้ในเครื่อง ให้ขึ้น "หมดอายุแล้ว" ทันที
+   6. [ใหม่] ปุ่ม "ลบจากประวัติ" และ "ล้างประวัติทั้งหมด" (clearShareHistory) ทำงานได้จริง
+   7. [ใหม่] เมนู "จัดการ" ย้ายไปแสดงที่ <body> (portal) คำนวณตำแหน่งด้วย JS
+      ไม่ให้ถูกครอบตัดใต้แถบหัวข้อ/พื้นที่เลื่อนอีกต่อไป
+   8. [ใหม่] ป็อปอัพ "ข้อมูลลิงก์แชร์" / "คัดลอกแล้ว" ใช้ไอคอนติ๊กถูกสีเขียว (สำเร็จ)
+      แทนกากบาทแดง (error) ซึ่งเดิมส่งค่า isError=true ทุกกรณีอย่างผิด ๆ
    ================================================================ */
 
 (function(){
@@ -14,6 +20,7 @@
 
 // ── Constants ────────────────────────────────────────────────────
 var SHARE_HISTORY_Z = 2147483500;
+var MANAGE_MENU_Z = 2147483501; // สูงกว่าตัว popup แต่ต่ำกว่า custom-alert (2147483647)
 
 // ── Helpers ──────────────────────────────────────────────────────
 function eid(id){ return document.getElementById(id); }
@@ -32,8 +39,9 @@ function esc(v){
   });
 }
 
-function alert2(title,msg){
-  if(typeof window.showCustomAlert === 'function') window.showCustomAlert(title,msg,true);
+// isError: true = ไอคอนกากบาทแดง (ผิดพลาด/แจ้งเตือน), false/undefined = ไอคอนติ๊กถูกเขียว (สำเร็จ/ข้อมูล)
+function alert2(title,msg,isError){
+  if(typeof window.showCustomAlert === 'function') window.showCustomAlert(title,msg,!!isError);
   else alert(title + ': ' + msg);
 }
 
@@ -52,10 +60,25 @@ function getFirebaseHelpers(){
     query: window.__shQuery || null,
     where: window.__shWhere || null,
     orderBy: window.__shOrderBy || null,
-    deleteDoc: typeof window.deleteDoc === 'function' ? window.deleteDoc : null,
-    setDoc: typeof window.setDoc === 'function' ? window.setDoc : null
+    // เดิมอ้างอิง window.deleteDoc / window.setDoc ซึ่งไม่เคยถูกประกาศไว้จริง (undefined เสมอ)
+    // ทำให้ปุ่ม "ปิดใช้งาน" ไม่เคยลบเอกสารบน Firebase ได้จริงเลย แก้ให้ชี้ไปที่ __shDeleteDoc/__shSetDoc ที่ 007.js เปิดออกมาให้แล้ว
+    deleteDoc: typeof window.__shDeleteDoc === 'function' ? window.__shDeleteDoc : null,
+    setDoc: typeof window.__shSetDoc === 'function' ? window.__shSetDoc : null
   };
 }
+
+// ── Local (ต่อเครื่อง) เก็บสถานะ "ปิดใช้งาน" / "ลบแล้ว" ──────────────
+// ทำให้ปุ่มปิดใช้งาน/ลบ/ล้างประวัติ "ใช้งานได้จริงเสมอ" ต่อให้ Firestore Rules ไม่อนุญาตให้ลบเอกสารจริง
+// (การลบเอกสารจริงบน Firebase ยังพยายามทำอยู่เป็น best-effort ควบคู่กันไปด้วย)
+function lsKey(kind,cid){ return 'sh_hist_' + kind + '_' + cid; }
+function lsGetJSON(key, fallback){
+  try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch(e){ return fallback; }
+}
+function lsSetJSON(key, val){ try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
+function getRemovedTokens(cid){ return lsGetJSON(lsKey('removed',cid), []); }
+function setRemovedTokens(cid, arr){ lsSetJSON(lsKey('removed',cid), arr); }
+function getDisabledMap(cid){ return lsGetJSON(lsKey('disabled',cid), {}); }
+function setDisabledMap(cid, obj){ lsSetJSON(lsKey('disabled',cid), obj); }
 
 // ── Fetch share links from Firebase ──────────────────────────────
 async function fetchShareTokensFromFirebase(cid){
@@ -101,7 +124,7 @@ async function fetchShareTokensFromFirebase(cid){
 // ── Open Share History Popup ─────────────────────────────────────
 window.openShareHistory = async function(){
   var cid = getCid();
-  if(!cid){ alert2('กรุณาเลือกรายวิชา','กรุณาเปิดรายวิชาก่อนใช้งาน'); return; }
+  if(!cid){ alert2('กรุณาเลือกรายวิชา','กรุณาเปิดรายวิชาก่อนใช้งาน',true); return; }
 
   var popup = eid('share-history-popup');
   if(!popup) return;
@@ -119,12 +142,22 @@ window.openShareHistory = async function(){
 window.closeShareHistory = function(){
   var popup = eid('share-history-popup');
   if(popup) popup.classList.add('hidden');
+  // เคลียร์เมนู "จัดการ" ที่ถูกย้ายไปแปะไว้ที่ <body> ตอนเปิดใช้งาน ไม่ให้ค้างอยู่หลังปิดป็อปอัพ
+  removeDetachedManageMenus();
+  if(window._shHistInterval){ clearInterval(window._shHistInterval); window._shHistInterval = null; }
 };
+
+function removeDetachedManageMenus(){
+  document.querySelectorAll('body > .sh-hist-manage-menu').forEach(function(el){ el.remove(); });
+}
 
 // ── Render Share History ─────────────────────────────────────────
 async function renderShareHistory(cid){
   var container = eid('share-history-list');
   if(!container) return;
+
+  // เคลียร์เมนู "จัดการ" เก่าที่เคยถูกย้ายไป <body> ก่อนวาดการ์ดชุดใหม่ ป้องกัน id ซ้ำ
+  removeDetachedManageMenus();
 
   // 1. Get Local History
   var st = getState();
@@ -152,6 +185,19 @@ async function renderShareHistory(cid){
   
   var allRecords = Object.values(recordMap).sort(function(a,b){
     return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  // 3.5 ตัดรายการที่เคย "ลบจากประวัติ" หรือ "ล้างประวัติ" ไปแล้วในเครื่องนี้ทิ้งไปเลย
+  //     และรายการที่เคยกด "ปิดใช้งาน" ให้บังคับ expiresAt เป็นอดีต จะได้ขึ้น "หมดอายุแล้ว" ทันที
+  //     ทำงานได้จริงแม้ Firestore Rules จะไม่ยอมให้ลบเอกสารต้นทางก็ตาม
+  var removedTokens = getRemovedTokens(cid);
+  var disabledMap = getDisabledMap(cid);
+  if(removedTokens.length){
+    allRecords = allRecords.filter(function(r){ return removedTokens.indexOf(r.id || r.token) === -1; });
+  }
+  allRecords.forEach(function(r){
+    var token = r.id || r.token;
+    if(disabledMap[token]){ r.expiresAt = disabledMap[token]; }
   });
 
   // 4. Update Summary and Render List
@@ -241,19 +287,62 @@ function startCountdown(){
   }, 1000);
 }
 
+// ── Manage Menu ("จัดการ") — Portal to <body> เพื่อไม่ให้ถูกครอบตัด ──
+// เดิมเมนูนี้เป็น position:absolute อยู่ในการ์ดที่อยู่ในกล่องเลื่อน (overflow-y:auto)
+// ซึ่งตัวกล่อง popup รอบนอกมี backdrop-blur + overflow-hidden ทำให้เมนูที่กาง "ขึ้นด้านบน"
+// ถูกครอบตัดไปโผล่ใต้แถบหัวข้อแทน จึงย้าย element จริงไปแปะที่ body แล้วคำนวณตำแหน่งด้วย JS
 window.toggleManageMenu = function(btn, token){
   var menu = eid('manage-menu-' + token);
   if(!menu) return;
-  document.querySelectorAll('.sh-hist-manage-menu.open').forEach(function(m){ if(m.id !== menu.id) m.classList.remove('open'); });
-  menu.classList.toggle('open');
-  btn.classList.toggle('active');
+  var willOpen = !menu.classList.contains('open');
+
+  document.querySelectorAll('.sh-hist-manage-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  document.querySelectorAll('.sh-hist-btn-manage.active').forEach(function(b){ b.classList.remove('active'); });
+
+  if(!willOpen) return;
+
+  document.body.appendChild(menu);
+  menu.style.position = 'fixed';
+  menu.style.margin = '0';
+  menu.style.zIndex = String(MANAGE_MENU_Z);
+  menu.style.right = 'auto';
+  menu.style.bottom = 'auto';
+  menu.classList.add('open'); // ต้องเปิดก่อนถึงจะวัดขนาดจริงได้
+
+  var rect = btn.getBoundingClientRect();
+  var gap = 8;
+  var mw = menu.offsetWidth || 180;
+  var mh = menu.offsetHeight || 150;
+
+  var left = rect.right - mw;
+  if(left < gap) left = gap;
+  if(left + mw > window.innerWidth - gap) left = Math.max(gap, window.innerWidth - mw - gap);
+
+  var top = rect.top - mh - gap; // แสดงเหนือปุ่มก่อนเป็นค่าเริ่มต้น
+  if(top < gap) top = Math.min(rect.bottom + gap, window.innerHeight - mh - gap); // พื้นที่ไม่พอด้านบน -> โชว์ใต้ปุ่มแทน
+
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+
+  btn.classList.add('active');
+
+  // ถ้าเลื่อนหน้าจอ/ปรับขนาดหน้าต่างระหว่างเปิดเมนู ตำแหน่งจะไม่ตรงปุ่มอีกต่อไป ให้ปิดไปเลย
+  var listEl = eid('share-history-list');
+  function closeOnScroll(){ window.closeManageMenu(token); }
+  if(listEl) listEl.addEventListener('scroll', closeOnScroll, { once:true, passive:true });
+  window.addEventListener('resize', closeOnScroll, { once:true });
 };
 
-window.closeManageMenu = function(token){ eid('manage-menu-' + token)?.classList.remove('open'); };
+window.closeManageMenu = function(token){
+  var menu = eid('manage-menu-' + token);
+  if(menu) menu.classList.remove('open');
+  document.querySelectorAll('.sh-hist-btn-manage.active').forEach(function(b){ b.classList.remove('active'); });
+};
 
 document.addEventListener('click', function(e){
   if(!e.target.closest('.sh-hist-manage-menu') && !e.target.closest('.sh-hist-btn-manage')){
     document.querySelectorAll('.sh-hist-manage-menu.open').forEach(function(m){ m.classList.remove('open'); });
+    document.querySelectorAll('.sh-hist-btn-manage.active').forEach(function(b){ b.classList.remove('active'); });
   }
 });
 
@@ -262,31 +351,89 @@ window.copyShareHistoryLink = function(token){
   navigator.clipboard.writeText(url).then(function(){ alert2('คัดลอกแล้ว','คัดลอกลิงก์เรียบร้อยแล้ว'); });
 };
 
+// ── ปิดใช้งานลิงก์ ("ปิดใช้งาน") ──────────────────────────────────
+// แก้ให้: 1) ล็อกสถานะ "หมดอายุแล้ว" ทันทีในเครื่องนี้ (ไม่ต้องรอ Firebase)
+//         2) พยายามลบเอกสารจริงบน Firebase ควบคู่กันไป (best-effort) เพื่อปิดลิงก์จริง ๆ
 window.disableShareRecord = async function(token){
-  confirm2('ยืนยันปิดลิงก์','ต้องการปิดลิงก์แชร์นี้ใช่หรือไม่?', async function(){
+  confirm2('ยืนยันปิดลิงก์','ต้องการปิดลิงก์แชร์นี้ใช่หรือไม่? นักเรียนจะไม่สามารถเปิดดูลิงก์นี้ได้อีก', async function(){
+    var cid = getCid();
+    if(cid){
+      var map = getDisabledMap(cid);
+      map[token] = Date.now() - 1000; // บังคับให้ตีความว่าหมดอายุไปแล้ว แสดงผล "หมดอายุแล้ว" ทันที
+      setDisabledMap(cid, map);
+    }
+
     var fh = getFirebaseHelpers();
     if(fh.db && fh.doc && fh.deleteDoc){
-        try { await fh.deleteDoc(fh.doc(fh.db, 'shared_student_views', token)); } catch(e){}
+      try { await fh.deleteDoc(fh.doc(fh.db, 'shared_student_views', token)); } catch(e){ console.warn('130.js disable cloud delete failed:', e); }
     }
-    // Update Local
-    var cid = getCid();
+
+    // Update Local record (ถ้ามี) ให้สอดคล้องกันด้วย
     if(cid && getState().shareHistory?.[cid]){
         var r = getState().shareHistory[cid].find(x=>(x.id||x.token)===token);
-        if(r) r.isActive = false;
-        if(window.dbSave) await window.dbSave();
+        if(r){ r.isActive = false; r.expiresAt = Date.now() - 1000; }
+        if(typeof window.saveStateToDB === 'function'){ try { await window.saveStateToDB(); } catch(e){} }
     }
-    renderShareHistory(cid);
+
+    await renderShareHistory(cid);
+    alert2('ปิดลิงก์แล้ว','ลิงก์นี้ถูกปิดใช้งาน และแสดงสถานะหมดอายุแล้วทันที');
   });
 };
 
+// ── ลบจากประวัติ (รายการเดียว) ────────────────────────────────────
 window.deleteShareRecord = async function(token){
   confirm2('ยืนยันลบประวัติ','ต้องการลบรายการนี้จากประวัติใช่หรือไม่?', async function(){
     var cid = getCid();
-    if(cid && getState().shareHistory?.[cid]){
+    if(cid){
+      var removed = getRemovedTokens(cid);
+      if(removed.indexOf(token) === -1) removed.push(token);
+      setRemovedTokens(cid, removed);
+
+      if(getState().shareHistory?.[cid]){
         getState().shareHistory[cid] = getState().shareHistory[cid].filter(x=>(x.id||x.token)!==token);
-        if(window.dbSave) await window.dbSave();
+      }
     }
-    renderShareHistory(cid);
+
+    var fh = getFirebaseHelpers();
+    if(fh.db && fh.doc && fh.deleteDoc){
+      try { await fh.deleteDoc(fh.doc(fh.db, 'shared_student_views', token)); } catch(e){ console.warn('130.js delete cloud failed:', e); }
+    }
+
+    if(typeof window.saveStateToDB === 'function'){ try { await window.saveStateToDB(); } catch(e){} }
+    await renderShareHistory(cid);
+  });
+};
+
+// ── ล้างประวัติทั้งหมด ("clearShareHistory") ──────────────────────
+// เดิมฟังก์ชันนี้ไม่เคยถูกประกาศไว้เลย ปุ่ม "ล้างประวัติทั้งหมด" บนหัว popup จึงกดไม่ได้อะไร
+window.clearShareHistory = function(){
+  var cid = getCid();
+  if(!cid){ alert2('กรุณาเลือกรายวิชา','กรุณาเปิดรายวิชาก่อนใช้งาน',true); return; }
+
+  var container = eid('share-history-list');
+  var tokens = container
+    ? Array.prototype.map.call(container.querySelectorAll('.sh-hist-card[data-token]'), function(el){ return el.getAttribute('data-token'); }).filter(Boolean)
+    : [];
+
+  if(!tokens.length){ alert2('ไม่มีประวัติ','ยังไม่มีประวัติการแชร์ให้ล้างในรายวิชานี้',true); return; }
+
+  confirm2('ยืนยันล้างประวัติทั้งหมด','ต้องการล้างประวัติการแชร์ทั้งหมด (' + tokens.length + ' รายการ) ของรายวิชานี้ใช่หรือไม่? ลิงก์ทั้งหมดจะถูกปิดใช้งานด้วย', async function(){
+    var removed = getRemovedTokens(cid);
+    tokens.forEach(function(t){ if(removed.indexOf(t) === -1) removed.push(t); });
+    setRemovedTokens(cid, removed);
+
+    if(getState().shareHistory?.[cid]) getState().shareHistory[cid] = [];
+
+    var fh = getFirebaseHelpers();
+    if(fh.db && fh.doc && fh.deleteDoc){
+      for(var i=0;i<tokens.length;i++){
+        try { await fh.deleteDoc(fh.doc(fh.db, 'shared_student_views', tokens[i])); } catch(e){ console.warn('130.js clear cloud delete failed:', tokens[i], e); }
+      }
+    }
+
+    if(typeof window.saveStateToDB === 'function'){ try { await window.saveStateToDB(); } catch(e){} }
+    await renderShareHistory(cid);
+    alert2('ล้างประวัติแล้ว','ล้างประวัติการแชร์ทั้งหมดของรายวิชานี้เรียบร้อยแล้ว');
   });
 };
 
@@ -295,10 +442,11 @@ window.viewShareRecord = async function(token){
   if(!fh.db || !fh.doc || !fh.getDoc) return;
   try {
     var snap = await fh.getDoc(fh.doc(fh.db, 'shared_student_views', token));
-    if(!snap.exists()){ alert2('ไม่พบข้อมูล','ลิงก์นี้ถูกปิดหรือถูกลบไปแล้ว'); return; }
+    if(!snap.exists()){ alert2('ไม่พบข้อมูล','ลิงก์นี้ถูกปิดหรือถูกลบไปแล้ว',true); return; }
     var d = snap.data();
-    alert2('ข้อมูลลิงก์แชร์', 'นักเรียน: ' + (d.student?.name||'-') + '\nสร้างเมื่อ: ' + new Date(d.createdAt).toLocaleString('th-TH') + '\nสรุปคะแนน: ' + (d.summary?.totalScore||0) + '/' + (d.summary?.totalMax||0));
-  } catch(e){ alert2('Error', e.message); }
+    // isError=false -> โชว์ไอคอนติ๊กถูกสีเขียว (ข้อมูล/สำเร็จ) แทนกากบาทแดงเดิมที่ผิด
+    alert2('ข้อมูลลิงก์แชร์', 'นักเรียน: ' + (d.student?.name||'-') + '\nสร้างเมื่อ: ' + new Date(d.createdAt).toLocaleString('th-TH') + '\nสรุปคะแนน: ' + (d.summary?.totalScore||0) + '/' + (d.summary?.totalMax||0), false);
+  } catch(e){ alert2('Error', e.message, true); }
 };
 
 })();
