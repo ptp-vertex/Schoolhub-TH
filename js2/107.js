@@ -105,8 +105,15 @@ W.shStarRender=function(){
       for(let i=1; i<=maxW; i++) opts += `<option value="${i}">สัปดาห์ที่ ${i}</option>`;
       weekSel.innerHTML = opts;
     }
-    // CRITICAL: Never auto-select week 1 — leave as placeholder
-    if (weekSel.value === '1') weekSel.value = '';
+    // NOTE: previously there was a line here that force-reset weekSel.value
+    // back to '' whenever it equalled '1'. The intent was "don't auto-select
+    // week 1 when the modal first opens", but shStarRender() also runs every
+    // time the week <select> fires its own onchange — so the moment a user
+    // picked "สัปดาห์ที่ 1" from the dropdown, this render immediately reset
+    // it back to the placeholder, making week 1 look unselectable. It's been
+    // removed: when the options are freshly rebuilt above, no <option> has
+    // the "selected" attribute, so the browser already defaults to the first
+    // option (the placeholder) on its own — no manual reset needed.
   }
 
   const week = parseInt(weekSel.value);
