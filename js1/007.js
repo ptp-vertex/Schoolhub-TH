@@ -2224,6 +2224,21 @@ async function submitPlanRequest(planId){
             `;
         }
 
+        function renderStudentShareDisabled(content) {
+            clearStudentShareCountdownTimer();
+            window.__studentShareCurrentData = null;
+
+            if (!content) return;
+
+            content.innerHTML = `
+                <div class="text-center py-14">
+                  <i class="fas fa-ban text-5xl text-amber-300 mb-4"></i>
+                  <h2 class="text-2xl font-black text-slate-800">ลิงก์นี้ถูกปิดใช้งานแล้ว</h2>
+                  <p class="text-slate-500 mt-2">ครูผู้สอนได้ปิดการเข้าถึงลิงก์นี้ กรุณาขอลิงก์ใหม่จากครูผู้สอน</p>
+                </div>
+            `;
+        }
+
         function formatStudentShareRemainingTime(ms) {
             const totalSeconds = Math.max(0, Math.floor(ms / 1000));
             const hours = Math.floor(totalSeconds / 3600);
@@ -2262,6 +2277,13 @@ async function submitPlanRequest(planId){
 
                 const data=snap.data();
                 const now=Date.now();
+
+                if(data.disabled === true){
+                    renderStudentShareDisabled(content);
+                    document.getElementById('global-loader').style.display='none';
+                    return true;
+                }
+
                 const expireMinutes = Math.max(1, Number(data.expireMinutes || 1));
                 let firstViewedAt = Number(data.firstViewedAt || now);
                 let expiresAt = Number(data.expiresAt || (firstViewedAt + expireMinutes * 60000));
