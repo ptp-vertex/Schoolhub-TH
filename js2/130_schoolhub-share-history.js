@@ -68,8 +68,10 @@ function getFirebaseHelpers(){
 }
 
 // ── Local (ต่อเครื่อง) เก็บสถานะ "ปิดใช้งาน" / "ลบแล้ว" ──────────────
-// ทำให้ปุ่มปิดใช้งาน/ลบ/ล้างประวัติ "ใช้งานได้จริงเสมอ" ต่อให้ Firestore Rules ไม่อนุญาตให้ลบเอกสารจริง
-// (การลบเอกสารจริงบน Firebase ยังพยายามทำอยู่เป็น best-effort ควบคู่กันไปด้วย)
+// "ปิดใช้งาน" (disable) = ทำให้เข้าลิงก์ไม่ได้ แต่ยังอยู่ในประวัติ (ไม่เท่ากับลบ) เปิดกลับมาใช้ได้ภายหลัง
+// "ลบจากประวัติ" / "ล้างประวัติ" = ลบออกจากรายการจริง ไม่สามารถกู้คืนได้
+// เก็บไว้ที่เครื่องนี้เพื่อให้ปุ่มใช้งานได้จริงเสมอ ต่อให้ Firestore Rules ไม่อนุญาตให้แก้ไข/ลบเอกสารจริง
+// (ยังพยายามอัปเดต/ลบเอกสารจริงบน Firebase ควบคู่กันไปแบบ best-effort ด้วย)
 function lsKey(kind,cid){ return 'sh_hist_' + kind + '_' + cid; }
 function lsGetJSON(key, fallback){
   try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch(e){ return fallback; }
@@ -77,7 +79,7 @@ function lsGetJSON(key, fallback){
 function lsSetJSON(key, val){ try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
 function getRemovedTokens(cid){ return lsGetJSON(lsKey('removed',cid), []); }
 function setRemovedTokens(cid, arr){ lsSetJSON(lsKey('removed',cid), arr); }
-function getDisabledMap(cid){ return lsGetJSON(lsKey('disabled',cid), {}); }
+function getDisabledMap(cid){ return lsGetJSON(lsKey('disabled',cid), {}); } // { token: true }
 function setDisabledMap(cid, obj){ lsSetJSON(lsKey('disabled',cid), obj); }
 
 // ── Fetch share links from Firebase ──────────────────────────────
@@ -104,6 +106,7 @@ async function fetchShareTokensFromFirebase(cid){
         expireMinutes: data.expireMinutes || 1,
         note: data.note || '',
         expiresAt: data.expiresAt || null,
+        disabled: !!data.disabled,
         isActive: true
       });
     });
@@ -188,8 +191,8 @@ async function renderShareHistory(cid){
   });
 
   // 3.5 ตัดรายการที่เคย "ลบจากประวัติ" หรือ "ล้างประวัติ" ไปแล้วในเครื่องนี้ทิ้งไปเลย
-  //     และรายการที่เคยกด "ปิดใช้งาน" ให้บังคับ expiresAt เป็นอดีต จะได้ขึ้น "หมดอายุแล้ว" ทันที
-  //     ทำงานได้จริงแม้ Firestore Rules จะไม่ยอมให้ลบเอกสารต้นทางก็ตาม
+  //     และรายการที่เคยกด "ปิดใช้งาน" ให้ตั้งค่า disabled=true (คนละสถานะกับ "หมดอายุแล้ว")
+  //     ทำงานได้จริงแม้ Firestore Rules จะไม่ยอมให้แก้ไข/ลบเอกสารต้นทางก็ตาม
   var removedTokens = getRemovedTokens(cid);
   var disabledMap = getDisabledMap(cid);
   if(removedTokens.length){
@@ -197,7 +200,7 @@ async function renderShareHistory(cid){
   }
   allRecords.forEach(function(r){
     var token = r.id || r.token;
-    if(disabledMap[token]){ r.expiresAt = disabledMap[token]; }
+    if(disabledMap[token]) r.disabled = true;
   });
 
   // 4. Update Summary and Render List
@@ -205,7 +208,9 @@ async function renderShareHistory(cid){
   var activeCount = 0;
   allRecords.forEach(function(r){
     var expiresAt = r.expiresAt || (r.data && r.data.expiresAt) || null;
-    if(!expiresAt || expiresAt > now) activeCount++;
+    var disabledFlag = !!(r.disabled || (r.data && r.data.disabled));
+    var timeExpired = expiresAt ? (expiresAt <= now) : false;
+    if(!disabledFlag && !timeExpired) activeCount++;
   });
 
   var summaryHtml = '<span style="color:#059669;font-weight:700">' + activeCount + ' รายการใช้งานได้</span> | รวม ' + allRecords.length + ' รายการ';
@@ -231,15 +236,17 @@ async function renderShareHistory(cid){
     var createdAt = r.createdAt || 0;
     var expiresAt = r.expiresAt || (r.data && r.data.expiresAt) || null;
     var expireMinutes = r.expireMinutes || 1;
-    var isActive = expiresAt ? (expiresAt > now) : true;
+    var disabledFlag = !!(r.disabled || (r.data && r.data.disabled));
+    var timeExpired = expiresAt ? (expiresAt <= now) : false;
+    var isActive = !disabledFlag && !timeExpired;
     var remaining = expiresAt ? Math.max(0, expiresAt - now) : (expireMinutes * 60 * 1000);
     var totalSec = Math.ceil(remaining / 1000);
     var min = Math.floor(totalSec / 60);
     var sec = totalSec % 60;
 
-    var statusClass = isActive ? 'sh-hist-active' : 'sh-hist-expired';
-    var statusText = isActive ? (expiresAt ? 'ใช้งานได้' : 'รอเปิดดู') : 'หมดอายุแล้ว';
-    var statusColor = isActive ? '#059669' : '#ef4444';
+    var statusClass = disabledFlag ? 'sh-hist-disabled' : (isActive ? 'sh-hist-active' : 'sh-hist-expired');
+    var statusText = disabledFlag ? 'ปิดใช้งาน' : (isActive ? (expiresAt ? 'ใช้งานได้' : 'รอเปิดดู') : 'หมดอายุแล้ว');
+    var statusColor = disabledFlag ? '#d97706' : (isActive ? '#059669' : '#ef4444'); // เหลือง / เขียว / แดง
     var token = r.id || r.token || '';
 
     return '<div class="sh-hist-card ' + statusClass + '" data-token="' + token + '">'
@@ -260,7 +267,8 @@ async function renderShareHistory(cid){
           + '<button type="button" onclick="toggleManageMenu(this,\'' + token + '\')" class="sh-hist-btn-manage"><i class="fas fa-ellipsis-vertical mr-1"></i>จัดการ</button>'
           + '<div class="sh-hist-manage-menu" id="manage-menu-' + token + '">'
             + '<button type="button" onclick="copyShareHistoryLink(\'' + token + '\');closeManageMenu(\'' + token + '\')" class="sh-hist-menu-item"><i class="fas fa-copy text-indigo-500 mr-2"></i>คัดลอกลิงก์</button>'
-            + (isActive ? '<button type="button" onclick="disableShareRecord(\'' + token + '\');closeManageMenu(\'' + token + '\')" class="sh-hist-menu-item sh-hist-menu-danger"><i class="fas fa-ban text-red-500 mr-2"></i>ปิดใช้งาน</button>' : '')
+            + (isActive ? '<button type="button" onclick="disableShareRecord(\'' + token + '\');closeManageMenu(\'' + token + '\')" class="sh-hist-menu-item sh-hist-menu-danger"><i class="fas fa-ban text-amber-500 mr-2"></i>ปิดใช้งาน</button>' : '')
+            + (disabledFlag ? '<button type="button" onclick="enableShareRecord(\'' + token + '\');closeManageMenu(\'' + token + '\')" class="sh-hist-menu-item"><i class="fas fa-rotate-left text-emerald-500 mr-2"></i>เปิดใช้งานอีกครั้ง</button>' : '')
             + '<button type="button" onclick="viewShareRecord(\'' + token + '\');closeManageMenu(\'' + token + '\')" class="sh-hist-menu-item"><i class="fas fa-eye text-emerald-500 mr-2"></i>ดูข้อมูล</button>'
             + '<button type="button" onclick="deleteShareRecord(\'' + token + '\');closeManageMenu(\'' + token + '\')" class="sh-hist-menu-item sh-hist-menu-danger"><i class="fas fa-trash-can text-red-500 mr-2"></i>ลบจากประวัติ</button>'
           + '</div>'
@@ -351,32 +359,59 @@ window.copyShareHistoryLink = function(token){
   navigator.clipboard.writeText(url).then(function(){ alert2('คัดลอกแล้ว','คัดลอกลิงก์เรียบร้อยแล้ว'); });
 };
 
-// ── ปิดใช้งานลิงก์ ("ปิดใช้งาน") ──────────────────────────────────
-// แก้ให้: 1) ล็อกสถานะ "หมดอายุแล้ว" ทันทีในเครื่องนี้ (ไม่ต้องรอ Firebase)
-//         2) พยายามลบเอกสารจริงบน Firebase ควบคู่กันไป (best-effort) เพื่อปิดลิงก์จริง ๆ
+// ── ปิดใช้งานลิงก์ ("ปิดใช้งาน") — ไม่ใช่การลบ แค่ทำให้เข้าถึงไม่ได้ ──
+// แก้ให้: 1) ตั้งสถานะ "ปิดใช้งาน" (สีเหลือง) ทันทีในเครื่องนี้ ไม่ต้องรอ Firebase
+//         2) อัปเดตเอกสารจริงบน Firebase เป็น disabled:true (merge, ไม่ลบทิ้ง) เพื่อบล็อกไม่ให้นักเรียนเปิดลิงก์ได้จริง
+//         3) เปิดใช้งานกลับคืนได้ภายหลังด้วย enableShareRecord — คนละสถานะกับ "หมดอายุแล้ว" (สีแดง จากเวลาหมดเอง)
 window.disableShareRecord = async function(token){
-  confirm2('ยืนยันปิดลิงก์','ต้องการปิดลิงก์แชร์นี้ใช่หรือไม่? นักเรียนจะไม่สามารถเปิดดูลิงก์นี้ได้อีก', async function(){
+  confirm2('ยืนยันปิดลิงก์','ต้องการปิดใช้งานลิงก์แชร์นี้ใช่หรือไม่? นักเรียนจะเข้าลิงก์นี้ไม่ได้ทันที แต่ยังคงอยู่ในประวัติ และเปิดใช้งานกลับมาได้ภายหลัง (ไม่ใช่การลบ)', async function(){
     var cid = getCid();
     if(cid){
       var map = getDisabledMap(cid);
-      map[token] = Date.now() - 1000; // บังคับให้ตีความว่าหมดอายุไปแล้ว แสดงผล "หมดอายุแล้ว" ทันที
+      map[token] = true;
       setDisabledMap(cid, map);
     }
 
     var fh = getFirebaseHelpers();
-    if(fh.db && fh.doc && fh.deleteDoc){
-      try { await fh.deleteDoc(fh.doc(fh.db, 'shared_student_views', token)); } catch(e){ console.warn('130.js disable cloud delete failed:', e); }
+    if(fh.db && fh.doc && fh.setDoc){
+      try { await fh.setDoc(fh.doc(fh.db, 'shared_student_views', token), { disabled: true, disabledAt: Date.now() }, { merge: true }); } catch(e){ console.warn('130.js disable cloud update failed:', e); }
     }
 
     // Update Local record (ถ้ามี) ให้สอดคล้องกันด้วย
     if(cid && getState().shareHistory?.[cid]){
         var r = getState().shareHistory[cid].find(x=>(x.id||x.token)===token);
-        if(r){ r.isActive = false; r.expiresAt = Date.now() - 1000; }
+        if(r) r.disabled = true;
         if(typeof window.saveStateToDB === 'function'){ try { await window.saveStateToDB(); } catch(e){} }
     }
 
     await renderShareHistory(cid);
-    alert2('ปิดลิงก์แล้ว','ลิงก์นี้ถูกปิดใช้งาน และแสดงสถานะหมดอายุแล้วทันที');
+    alert2('ปิดใช้งานแล้ว','ปิดการเข้าถึงลิงก์นี้แล้ว นักเรียนจะเปิดดูไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง');
+  });
+};
+
+// ── เปิดใช้งานลิงก์อีกครั้ง (ยกเลิกการปิดใช้งาน) ─────────────────
+window.enableShareRecord = async function(token){
+  confirm2('เปิดใช้งานลิงก์','ต้องการเปิดใช้งานลิงก์แชร์นี้อีกครั้งใช่หรือไม่?', async function(){
+    var cid = getCid();
+    if(cid){
+      var map = getDisabledMap(cid);
+      delete map[token];
+      setDisabledMap(cid, map);
+    }
+
+    var fh = getFirebaseHelpers();
+    if(fh.db && fh.doc && fh.setDoc){
+      try { await fh.setDoc(fh.doc(fh.db, 'shared_student_views', token), { disabled: false }, { merge: true }); } catch(e){ console.warn('130.js enable cloud update failed:', e); }
+    }
+
+    if(cid && getState().shareHistory?.[cid]){
+        var r = getState().shareHistory[cid].find(x=>(x.id||x.token)===token);
+        if(r) r.disabled = false;
+        if(typeof window.saveStateToDB === 'function'){ try { await window.saveStateToDB(); } catch(e){} }
+    }
+
+    await renderShareHistory(cid);
+    alert2('เปิดใช้งานแล้ว','เปิดการเข้าถึงลิงก์นี้อีกครั้งแล้ว');
   });
 };
 
