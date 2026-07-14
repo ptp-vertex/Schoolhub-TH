@@ -121,8 +121,11 @@ function buildOptions(panel, wrap, sel){
       if(v===''){ parts.push('<button type="button" class="shdd-week-blank shdd-opt" data-val="">'+esc(opt.text)+'</button>'); }
       else {
         var status = getWeekGridStatus(sel, weekCid, v);
-        var statusClass = status==='scored' ? ' shdd-week-scored' : (status==='plan' ? ' shdd-week-planned' : '');
         var isBonusOrStar = (sel.id === 'sh-bonus-week' || sel.id === 'sh-star-week');
+        // สัปดาห์ที่บันทึกแล้ว: ระบบดาว = ส้มเข้ม, ระบบโบนัส = เขียวเข้ม, อื่น ๆ (คะแนน) = ฟ้าอมเขียวเดิม
+        var statusClass = status==='scored'
+          ? (sel.id==='sh-star-week' ? ' shdd-week-star-scored' : (sel.id==='sh-bonus-week' ? ' shdd-week-bonus-scored' : ' shdd-week-scored'))
+          : (status==='plan' ? ' shdd-week-planned' : '');
         var statusTitle = '';
         if(isBonusOrStar){ statusTitle = status==='scored' ? (sel.id==='sh-bonus-week' ? 'สัปดาห์นี้มีการให้คะแนนโบนัสแล้ว' : 'สัปดาห์นี้มีการให้ดาวแล้ว') : ''; }
         else { statusTitle = status==='scored' ? 'ตั้งแผนคะแนนและบันทึกคะแนนแล้ว' : (status==='plan' ? 'ตั้งแผนคะแนนไว้แล้ว' : ''); }
@@ -163,8 +166,7 @@ function buildOptions(panel, wrap, sel){
         }
       }
 
-      var lbl = wrap.querySelector('.shdd-label');
-      if(lbl) lbl.textContent = getLabel(sel);
+      syncLabel(wrap, sel);
       inner.querySelectorAll('.shdd-opt').forEach(function(i){ i.classList.remove('shdd-selected'); });
       item.classList.add('shdd-selected');
       closeAll();
@@ -172,11 +174,32 @@ function buildOptions(panel, wrap, sel){
   });
 }
 
+// ปุ่มปิด (ตัวที่โชว์สัปดาห์ที่เลือกอยู่) ให้ไล่สีตามสถานะของสัปดาห์นั้นด้วย
+// (ระบบดาว = ส้มเข้ม, ระบบโบนัส = เขียวเข้ม) ไม่ใช่แค่ในรายการที่กางออกมา
+function syncTriggerStatus(wrap, sel){
+  if(!WEEK_GRID[sel.id]) return;
+  var btn = wrap.querySelector('.shdd-btn');
+  if(!btn) return;
+  btn.classList.remove('shdd-btn-star-scored','shdd-btn-bonus-scored','shdd-btn-scored','shdd-btn-planned');
+  var v = String(sel.value);
+  if(!v) return;
+  var cid = getWeekGridCourseId(sel);
+  var status = getWeekGridStatus(sel, cid, v);
+  if(status==='scored'){
+    if(sel.id==='sh-star-week') btn.classList.add('shdd-btn-star-scored');
+    else if(sel.id==='sh-bonus-week') btn.classList.add('shdd-btn-bonus-scored');
+    else btn.classList.add('shdd-btn-scored');
+  } else if(status==='plan'){
+    btn.classList.add('shdd-btn-planned');
+  }
+}
+
 function syncLabel(wrap, sel){
   var lbl = wrap.querySelector('.shdd-label');
   if(!lbl) return;
   var t = getLabel(sel);
   if(lbl.textContent !== t) lbl.textContent = t;
+  syncTriggerStatus(wrap, sel);
   if(_wrap===wrap && _panel){
     var cur=String(sel.value);
     _panel.querySelectorAll('.shdd-opt').forEach(function(i){
@@ -227,6 +250,7 @@ function enhance(sel){
 
   // Sync initial visibility (e.g. score-title-select starts hidden)
   syncVisibility(wrap, sel);
+  syncTriggerStatus(wrap, sel);
 
   if(sel.options.length>0) buildOptions(panel, wrap, sel);
 
