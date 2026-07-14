@@ -90,6 +90,7 @@
 .sh-group-star-count {
   font-size:12px; font-weight:800; color:#92400e;
   background:#fef3c7; border-radius:8px; padding:2px 8px;
+  white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0;
 }
 .sh-rank-pts { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
 .sh-rank-pts label { font-size:13px; font-weight:700; color:#475569; }

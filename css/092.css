@@ -81,7 +81,7 @@
 }
 .sh-star-btn:hover { background:#fef9c3; transform:scale(1.15); }
 .sh-star-btn.filled { background:#fef08a; }
-.sh-group-star-count { font-size:12px; font-weight:800; color:#92400e; background:#fef3c7; border-radius:8px; padding:2px 8px; }
+.sh-group-star-count { font-size:12px; font-weight:800; color:#92400e; background:#fef3c7; border-radius:8px; padding:2px 8px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; flex-shrink:0; }
 .sh-rank-pts { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
 .sh-rank-pts label { font-size:13px; font-weight:700; color:#475569; }
 .sh-rank-pts input { width:52px; padding:5px 6px; border:1px solid #e2e8f0; border-radius:8px; text-align:center; font-size:14px; background:#f8fafc; }
