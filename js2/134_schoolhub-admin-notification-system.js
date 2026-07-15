@@ -191,8 +191,82 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDo
     }
   };
 
-  // ---------------- Daily digest (checked client-side on admin page load) ----------------
+  // ============================
+  // SERVER-SIDE DAILY DIGEST — ผ่าน Google Apps Script
+  // ============================
+  const DIGEST_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzLAD59TRLOkG06YavOBKE4yMFHDAxlGQW0NUA-BJHwkrPe4vJGHJ3Yiobjs1DjEvKd/exec';
+
+  // สร้าง hidden iframe + form submit เหมือน pattern เดิม
+  async function callDigestEndpoint(action, params = {}) {
+    if (!DIGEST_WEB_APP_URL) throw new Error('ไม่มี URL Apps Script');
+    const requestId = 'digest_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const payload = { requestId, action, ...params };
+
+    return new Promise((resolve, reject) => {
+      const iframeName = 'schoolhub_digest_frame_' + requestId;
+      const iframe = document.createElement('iframe');
+      iframe.name = iframeName;
+      iframe.style.display = 'none';
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = DIGEST_WEB_APP_URL;
+      form.target = iframeName;
+      form.style.display = 'none';
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'payload';
+      input.value = JSON.stringify(payload);
+      form.appendChild(input);
+      const cleanup = () => { window.removeEventListener('message', onMessage); iframe.remove(); form.remove(); };
+      const timer = setTimeout(() => { cleanup(); reject(new Error('Apps Script ไม่ตอบกลับ — กรุณาตรวจ Deploy')); }, 30000);
+      const onMessage = (event) => {
+        try {
+          const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+          if (!data || data.requestId !== requestId) return;
+          clearTimeout(timer);
+          cleanup();
+          if (data.ok) resolve(data);
+          else reject(new Error(data.error || 'Apps Script ไม่สำเร็จ'));
+        } catch (e) {
+          // ignore non-JSON postMessage
+        }
+      };
+      window.addEventListener('message', onMessage);
+      document.body.appendChild(iframe);
+      document.body.appendChild(form);
+      form.submit();
+    });
+  }
+
+  // ============================
+  // Daily digest (checked client-side on admin page load) ----------------
   async function runDailyDigestIfDue(force) {
+    // ─── ขั้น 1: พยายามเรียก server-side Apps Script ก่อน ───
+    try {
+      const resp = await callDigestEndpoint('triggerDigest', { force: !!force });
+      if (resp && resp.ok) {
+        if (resp.sent) {
+          console.log('[DailyDigest] Server-side ส่งสำเร็จ:', resp.message);
+          return { sent: true, count: resp.count || 0, serverSide: true };
+        }
+        if (resp.reason === 'already-sent') {
+          console.log('[DailyDigest] Server-side: วันนี้ส่งไปแล้ว');
+          return { sent: false, reason: 'already-sent' };
+        }
+        if (resp.reason === 'empty') {
+          console.log('[DailyDigest] Server-side: ไม่มีรายการ');
+          return { sent: false, reason: 'empty' };
+        }
+        if (resp.reason === 'no-daily-events') {
+          return { sent: false, reason: 'no-daily-events' };
+        }
+        console.warn('[DailyDigest] Server-side returned:', resp.reason, resp.message);
+      }
+    } catch (e) {
+      console.warn('[DailyDigest] Server-side endpoint ล้มเหลว — fallback client-side:', e.message);
+    }
+
+    // ─── ขั้น 2: Fallback — client-side (ถ้า server-side ไม่สำเร็จ) ───
     const settings = await loadSettings(true);
     if (!settings.adminEmail) return { sent: false, reason: 'no-email' };
     const today = new Date().toISOString().slice(0, 10);
@@ -227,14 +301,17 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDo
       await Promise.all(items.map(it => updateDoc(doc(db, 'admin_mail_log', it.id), { sent: true, sentAt: Date.now() }).catch(() => {})));
       await saveSettings({ lastDailySendDate: today });
     }
-    return { sent: ok, count: items.length };
+    return { sent: ok, count: items.length, serverSide: false };
   }
 
   window.sendAdminDailyDigestNow = async function () {
     const res = await runDailyDigestIfDue(true);
-    if (res.sent) alertBox('ส่งแล้ว', `ส่งสรุปประจำวันแล้ว (${res.count || 0} รายการ)`);
+    const mode = res.serverSide ? 'ผ่านเซิร์ฟเวอร์' : 'แบบออนไลน์';
+    if (res.sent) alertBox('ส่งแล้ว', `ส่งสรุปประจำวันแล้ว (${res.count || 0} รายการ) — ${mode}`);
     else if (res.reason === 'empty') alertBox('ไม่มีรายการ', 'ยังไม่มีรายการที่ต้องสรุปในตอนนี้');
+    else if (res.reason === 'already-sent') alertBox('ส่งแล้ว', 'วันนี้ส่งไปแล้ว — ไม่ต้องส่งซ้ำ');
     else if (res.reason === 'no-email') alertBox('ยังไม่ได้ตั้งอีเมล', 'กรุณาตั้งอีเมลรับการแจ้งเตือนก่อน', true);
+    else if (res.reason === 'no-daily-events') alertBox('ไม่เปิด daily', 'ไม่มี event ใดเปิดเป็น daily digest');
     else alertBox('ส่งไม่สำเร็จ', 'ลองใหม่อีกครั้ง หรือตรวจสอบระบบส่งเมล', true);
     return res;
   };
@@ -291,7 +368,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDo
               <label class="text-xs font-bold text-slate-700">เวลาสรุปประจำวัน</label>
               <input type="time" id="notif-daily-time-input" class="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm">
             </div>
-            <p class="text-[11px] text-slate-400 mt-2">เว็บนี้เป็น static site ไม่มีตัวจับเวลาฝั่งเซิร์ฟเวอร์ ระบบจะตรวจและส่งสรุปตอนแอดมินเปิดหน้าเว็บหลังเวลานี้ หรือกดส่งเองได้ทันทีด้านล่าง</p>
+            <p class="text-[11px] text-slate-400 mt-2">การตั้งค่าเวลา: ระบบจะส่งอัตโนมัติผ่านเซิร์ฟเวอร์ (Google Apps Script) ตามเวลาที่ตั้งไว้ — ไม่จำเป็นต้องเปิดเว็บทิ้งไว้</p>
           </div>
           <button type="button" onclick="window.sendAdminDailyDigestNow && window.sendAdminDailyDigestNow()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-sm"><i class="fas fa-paper-plane mr-1"></i> ส่งสรุปวันนี้ตอนนี้</button>
           <!-- ปุ่มเปิดหน้าประวัติการส่งเมล -->
