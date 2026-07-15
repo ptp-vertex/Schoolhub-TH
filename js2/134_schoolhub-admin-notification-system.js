@@ -128,13 +128,27 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDo
       const title = info?.title || def.label;
       const detail = info?.detail || '';
       const now = Date.now();
-      if (evt.mode === 'daily') {
-        await addDoc(QUEUE_COL(), { eventKey, title, detail, createdAt: now, sent: false });
-        return;
+      // เก็บลงคิวเสมอ ไม่ว่าจะเป็นโหมด instant หรือ daily
+      // เพื่อให้คอลเลคชั่น admin_notification_queue มีประวัติเหตุการณ์ทุกครั้ง
+      const isInstant = evt.mode !== 'daily';
+      let queueDocId = null;
+      try {
+        const ref = await addDoc(QUEUE_COL(), {
+          eventKey, title, detail, createdAt: now,
+          mode: isInstant ? 'instant' : 'daily',
+          sent: false
+        });
+        queueDocId = ref.id;
+      } catch (queueError) {
+        console.warn('บันทึกคิวแจ้งเตือนไม่สำเร็จ', queueError);
       }
+      if (!isInstant) return;
       const subject = `[SchoolHub] แจ้งเตือน: ${title}`;
       const message = `${title}\n\n${detail}\n\nเวลา: ${new Date(now).toLocaleString('th-TH')}`;
-      await sendAdminEmailNow(subject, message);
+      const ok = await sendAdminEmailNow(subject, message);
+      if (ok && queueDocId) {
+        try { await updateDoc(doc(db, 'admin_notification_queue', queueDocId), { sent: true, sentAt: Date.now() }); } catch (e) {}
+      }
     } catch (e) {
       console.warn('queueAdminNotification ล้มเหลว', e);
     }
