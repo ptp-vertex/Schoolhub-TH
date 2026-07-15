@@ -498,7 +498,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
   }
 
   function createAdminMessagesPanelHTML(){
-    return `<div class="rounded-3xl border border-rose-100 bg-rose-50/50 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div><h4 class="text-xl font-black text-slate-900"><i class="fas fa-inbox text-rose-500 mr-2"></i>ข้อความจากผู้ใช้</h4><p class="text-sm text-slate-500 mt-1">รายการข้อความที่ผู้ใช้ส่งถึงผู้ดูแลระบบ</p></div><button type="button" data-refresh-admin-messages data-schoolhub-always-allowed="1" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-5 py-3 rounded-2xl font-black"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button></div><div id="schoolhub-admin-contact-message-list" class="grid grid-cols-1 gap-4"><div class="text-center text-slate-400 py-10 bg-white rounded-3xl border border-dashed border-slate-200"><i class="fas fa-spinner fa-spin mr-1"></i> กำลังโหลดข้อความ...</div></div>`;
+    return `<div class="rounded-3xl border border-rose-100 bg-rose-50/50 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div><h4 class="text-xl font-black text-slate-900"><i class="fas fa-inbox text-rose-500 mr-2"></i>ข้อความจากผู้ใช้</h4><p class="text-sm text-slate-500 mt-1">รายการข้อความที่ผู้ใช้ส่งถึงผู้ดูแลระบบ</p></div><div class="flex gap-2"><button type="button" data-open-message-notif-settings data-schoolhub-always-allowed="1" class="bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-primary px-4 py-3 rounded-2xl font-black"><i class="fas fa-bell mr-1"></i> ตั้งค่าแจ้งเตือน</button><button type="button" data-refresh-admin-messages data-schoolhub-always-allowed="1" class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-5 py-3 rounded-2xl font-black"><i class="fas fa-sync-alt mr-1"></i> รีเฟรช</button></div></div><div id="schoolhub-admin-contact-message-list" class="grid grid-cols-1 gap-4"><div class="text-center text-slate-400 py-10 bg-white rounded-3xl border border-dashed border-slate-200"><i class="fas fa-spinner fa-spin mr-1"></i> กำลังโหลดข้อความ...</div></div>`;
   }
 
   function bindAdminMessagesPanelEvents(){
@@ -507,6 +507,11 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
     if (refreshBtn && refreshBtn.dataset.schoolhubBound !== '1') {
       refreshBtn.dataset.schoolhubBound = '1';
       refreshBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.loadAdminContactMessages?.(); });
+    }
+    const notifBtn = panel?.querySelector('[data-open-message-notif-settings]');
+    if (notifBtn && notifBtn.dataset.schoolhubBound !== '1') {
+      notifBtn.dataset.schoolhubBound = '1';
+      notifBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.openNotificationSettings?.('contactMessage'); });
     }
   }
 
@@ -1045,6 +1050,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
       }
       $('schoolhub-settings-admin-messages-tab')?.classList.toggle('hidden', !admin);
       $('schoolhub-settings-admin-system-tab')?.classList.toggle('hidden', !admin);
+      $('schoolhub-settings-notifications-tab')?.classList.toggle('hidden', !admin);
       if (admin) startAdminContactRealtime(false); else updateAdminMessageBadges(0);
       unlockSettingsControls();
       renderSettingsPanel(normalizeTab(tab || window.__schoolhubSettingsActiveTab || 'general'));
@@ -1098,6 +1104,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
       }
       $('schoolhub-settings-admin-messages-tab')?.classList.toggle('hidden', !admin);
       $('schoolhub-settings-admin-system-tab')?.classList.toggle('hidden', !admin);
+      $('schoolhub-settings-notifications-tab')?.classList.toggle('hidden', !admin);
       if (admin) startAdminContactRealtime(false); else updateAdminMessageBadges(0);
     } catch(e) { console.warn('Settings chrome refresh skipped:', e); }
 
@@ -1588,6 +1595,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
       if ($('schoolhub-contact-title')) $('schoolhub-contact-title').value = '';
       if ($('schoolhub-contact-message')) $('schoolhub-contact-message').value = '';
       startUserContactHistoryRealtime(true, false);
+      try{ window.queueAdminNotification && window.queueAdminNotification('contactMessage', { title: `ข้อความถึงผู้ดูแลระบบ: ${title}`, detail: `จาก: ${payload.userName || payload.userEmail || ''}\n${message}` }); }catch(e){}
       alertBox('ส่งข้อความแล้ว', 'บันทึกข้อความถึงผู้ดูแลระบบเรียบร้อยแล้ว สถานะเริ่มต้นคือ รอดำเนินการ');
     }catch(e){
       console.error('submit admin contact message failed', e);
