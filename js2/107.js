@@ -238,12 +238,28 @@ function shStarSetRender(){
         <span class="sh-starset-meta">${(s.groups||[]).length} กลุ่ม</span>
       </div>
       <div class="sh-starset-actions">
+        <button class="sh-btn-blue-sm" onclick="shStarRenameSet('${s.id}')" title="แก้ไขชื่อเซต"><i class="fas fa-pen mr-1"></i>แก้ไขชื่อ</button>
         <button class="sh-btn-purple-sm" onclick="shStarOpenGroupModal('${s.id}', '${esc(s.name)}')"><i class="fas fa-users mr-1"></i>ดู/เพิ่ม กลุ่ม</button>
         <button class="sh-btn-red-sm" onclick="shStarDelSet('${s.id}')">ลบ</button>
       </div>
     </div>
   `).join('');
 }
+
+W.shStarRenameSet = async function(id){
+  const cid=getCid(); if(!cid) return;
+  const cd=starCourseData(cid);
+  const set = (cd.sets||[]).find(s => s.id === id);
+  if(!set) return;
+  const newName = prompt('แก้ไขชื่อเซต', set.name || '');
+  if(newName === null) return;
+  const trimmed = newName.trim();
+  if(!trimmed){ alert2('ชื่อไม่ถูกต้อง','กรุณากรอกชื่อเซต'); return; }
+  set.name = trimmed;
+  shStarSetRender();
+  shStarRender();
+  await dbSave();
+};
 
 W.shStarAddSet = function(){
   const inp = document.getElementById('sh-new-set-name');
@@ -321,7 +337,10 @@ function shStarRenderGroupList(){
       <div class="sh-group-manage-card">
         <div class="sh-group-manage-header">
           <span class="sh-group-manage-name">${esc(g.name)}</span>
-          <button class="sh-del-group" onclick="shStarDelGroup('${g.id}')">ลบกลุ่ม</button>
+          <div class="sh-group-manage-header-actions">
+            <button class="sh-btn-blue-sm" onclick="shStarRenameGroup('${g.id}')" title="แก้ไขชื่อกลุ่ม"><i class="fas fa-pen mr-1"></i>แก้ไขชื่อ</button>
+            <button class="sh-del-group" onclick="shStarDelGroup('${g.id}')">ลบกลุ่ม</button>
+          </div>
         </div>
         <div class="sh-member-chips">${membersHtml || '<span style="font-size:11px;color:#94a3b8">ยังไม่มีสมาชิก</span>'}</div>
         <div class="sh-add-member-row">
@@ -358,6 +377,21 @@ W.shStarDelGroup = function(gid){
     currentSet.groups = currentSet.groups.filter(g => g.id !== gid);
     shStarRenderGroupList();
   });
+};
+
+W.shStarRenameGroup = function(gid){
+  const cid=getCid(); if(!cid || !W.__currentEditSetId) return;
+  const cd=starCourseData(cid);
+  const currentSet = cd.sets.find(s => s.id === W.__currentEditSetId);
+  if(!currentSet) return;
+  const grp = currentSet.groups.find(g => g.id === gid);
+  if(!grp) return;
+  const newName = prompt('แก้ไขชื่อกลุ่ม', grp.name || '');
+  if(newName === null) return;
+  const trimmed = newName.trim();
+  if(!trimmed){ alert2('ชื่อไม่ถูกต้อง','กรุณากรอกชื่อกลุ่ม'); return; }
+  grp.name = trimmed;
+  shStarRenderGroupList();
 };
 
 W.shStarAddMember = function(gid, mid){
