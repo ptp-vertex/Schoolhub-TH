@@ -165,8 +165,29 @@
 .sh-btn-purple-sm:hover { background: #ede9fe; }
 .sh-btn-red-sm { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 6px 12px; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
 .sh-btn-red-sm:hover { background: #fee2e2; }
+.sh-btn-blue-sm { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 6px 12px; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; }
+.sh-btn-blue-sm:hover { background: #dbeafe; }
 
 /* Management Modal inside Set */
 .sh-group-manage-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; }
 .sh-group-manage-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.sh-group-manage-header-actions { display: flex; gap: 6px; align-items: center; }
 .sh-group-manage-name { font-weight: 800; color: #1e293b; font-size: 14px; }
+
+/* Star Conversion: ประวัติการแปลงคะแนน */
+.sh-conv-history-section { margin-top: 18px; padding-top: 14px; border-top: 1.5px dashed #e2e8f0; }
+.sh-conv-history-title-row { font-size: 13px; font-weight: 800; color: #92400e; margin-bottom: 10px; display: flex; align-items: center; }
+.sh-conv-history-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+.sh-conv-history-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sh-conv-history-title { font-weight: 700; color: #1e293b; font-size: 13px; }
+.sh-conv-history-meta { font-size: 11px; color: #92400e; font-weight: 600; }
+.sh-conv-history-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.sh-conv-edit-banner { display: flex; justify-content: space-between; align-items: center; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; border-radius: 12px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; font-weight: 700; }
+.sh-btn-cancel-sm { background: #fff; color: #64748b; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.sh-btn-cancel-sm:hover { background: #f1f5f9; }
+
+@media (max-width: 640px) {
+  .sh-conv-history-item { flex-direction: column; align-items: stretch; }
+  .sh-conv-history-actions { justify-content: flex-end; }
+}
