@@ -1430,6 +1430,7 @@ document.addEventListener('paste', function(e){
                                 <button type="button" id="schoolhub-settings-admin-system-tab" data-settings-tab="admin-system" onclick="schoolhubOpenSettingsTab('admin-system')" data-schoolhub-always-allowed="1" class="settings-tab schoolhub-settings-tab hidden"><i class="fas fa-sliders mr-2"></i><span data-i18n="systemSettings">ตั้งค่าระบบ</span></button>
                                 <button type="button" id="schoolhub-settings-notifications-tab" onclick="window.openNotificationSettings && window.openNotificationSettings()" data-schoolhub-always-allowed="1" class="settings-tab schoolhub-settings-tab hidden"><i class="fas fa-bell mr-2"></i><span>การแจ้งเตือนอีเมล</span></button>
                                 <button type="button" id="schoolhub-settings-admin-messages-tab" data-settings-tab="contact-messages" onclick="schoolhubOpenSettingsTab('contact-messages')" data-schoolhub-always-allowed="1" class="settings-tab schoolhub-settings-tab hidden"><i class="fas fa-inbox mr-2"></i><span data-i18n="userMessages">ข้อความจากผู้ใช้</span><span class="admin-message-badge hidden" data-admin-message-badge="settings-tab">0</span></button>
+                                <button type="button" id="schoolhub-settings-admin-mail-log-tab" onclick="window.openAdminMailLog && window.openAdminMailLog()" data-schoolhub-always-allowed="1" class="settings-tab schoolhub-settings-tab hidden"><i class="fas fa-envelope-open-text mr-2 text-primary"></i><span>ประวัติการส่งอีเมล</span></button>
                             </div>
                         </aside>
 
@@ -1585,6 +1586,9 @@ document.addEventListener('paste', function(e){
                                     <div class="text-center text-slate-400 py-10 bg-white rounded-3xl border border-dashed border-slate-200"><i class="fas fa-spinner fa-spin mr-1"></i> กำลังโหลดข้อความ...</div>
                                 </div>
                             </section>
+
+                            <!-- Admin Mail Log Panel (hidden by default, shown via openAdminMailLog) -->
+                            <section id="schoolhub-settings-panel-admin-mail-log" class="schoolhub-settings-panel hidden space-y-4"></section>
                         </div>
                     </div>
                 </div>
@@ -3574,4 +3578,6 @@ document.addEventListener('paste', function(e){
      - จุดที่ยิงแจ้งเตือน: คำขอสมัครแผน (รวมกรณีต้องตรวจสลิปเอง) และข้อความถึงผู้ดูแลระบบ
      - ใช้ระบบส่งเมลเดิมของแอป (Google Apps Script) ไม่ต้องเพิ่มบริการใหม่ ===== -->
 <script id="schoolhub-admin-notification-system" src="js2/134_schoolhub-admin-notification-system.js" type="module"></script>
+<script id="schoolhub-admin-mail-log-migration" src="js2/135_schoolhub-admin-mail-log-migration.js" type="module"></script>
+<script id="schoolhub-admin-mail-log-ui" src="js2/136_schoolhub-admin-mail-log-ui.js" type="module"></script>
 <!-- ===== END PATCH: Admin Notification System ===== -->
