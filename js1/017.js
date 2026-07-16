@@ -140,6 +140,8 @@ function fillPopupFromPlan(p) {
     setCheck('plan-sub-allow-team', !!p.allowTeam);
     setCheck('plan-sub-featured', !!p.featured);
     setCheck('plan-sub-active', p.active !== false);
+    setCheck('plan-sub-allowBonus', p.allowBonus !== false);
+    setCheck('plan-sub-allowStars', p.allowStars !== false);
 }
 
 function resetPopupForm() {
