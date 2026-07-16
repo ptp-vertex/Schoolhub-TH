@@ -111,6 +111,8 @@ function normalizePlan(p) {
         allowEdit: p.allowEdit !== false,
         allowDelete: p.allowDelete !== false,
         allowReports: p.allowReports !== false,
+        allowBonus: p.allowBonus !== false,
+        allowStars: p.allowStars !== false,
         promptpay: String(p.promptpay || '').trim(),
         order: Number(p.order || 1),
         featured: !!p.featured,
