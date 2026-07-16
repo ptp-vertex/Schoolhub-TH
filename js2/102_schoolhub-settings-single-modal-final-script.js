@@ -386,20 +386,15 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
   function bindGeneralPanelEvents(){
     const panel = ensureSettingsPanel('general');
     if (!panel) return;
-    const saveBtn = panel.querySelector('[data-settings-save-profile]');
+    const saveBtn = panel.querySelector('#user-profile-save-btn');
     if (saveBtn && saveBtn.dataset.schoolhubBound !== '1') {
       saveBtn.dataset.schoolhubBound = '1';
-      saveBtn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); window.saveUserProfileChanges?.(); });
+      // ปุ่มจะเรียก saveUserProfileChanges() ผ่าน onclick attribute ที่มีอยู่แล้ว
     }
-    const resetBtn = panel.querySelector('[data-settings-reset-password]');
+    const resetBtn = panel.querySelector('[data-reset-password]');
     if (resetBtn && resetBtn.dataset.schoolhubBound !== '1') {
       resetBtn.dataset.schoolhubBound = '1';
-      resetBtn.addEventListener('click', function(e){
-        e.preventDefault(); e.stopPropagation();
-        if (typeof window.openResetPasswordPage === 'function') return window.openResetPasswordPage(e);
-        window.open('reset-password.html', '_blank');
-        return false;
-      });
+      // ปุ่มจะเรียก openResetPasswordPage() ผ่าน onclick attribute ที่มีอยู่แล้ว
     }
     panel.querySelectorAll('[data-open-language-panel]').forEach(btn => {
       if (btn.dataset.schoolhubBound === '1') return;
@@ -538,42 +533,40 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
   function renderProfilePanel(force = false){
     const host = $('schoolhub-settings-profile-host');
     if (!host) return;
-    if (!force && host.dataset.schoolhubProfilePanelRendered === '1' && host.querySelector('#settings-profile-display-name-input')) return;
+    if (!force && host.dataset.schoolhubProfilePanelRendered === '1' && host.querySelector('#profile-display-name-input')) return;
     host.innerHTML = `
-      <div class="space-y-4 settings-profile-form" data-schoolhub-always-allowed="1">
-        <div class="flex items-center gap-4 pb-2">
-          <div class="relative w-28 h-28 shrink-0">
-            <div id="settings-profile-avatar-initial" class="w-28 h-28 rounded-full bg-gradient-to-tr from-primary to-purple-500 text-white flex items-center justify-center text-4xl font-bold shadow-lg">U</div>
-            <img id="settings-profile-avatar-img" class="hidden absolute inset-0 w-28 h-28 rounded-full object-cover border-2 border-white shadow-lg" alt="รูปโปรไฟล์">
-            <button type="button" id="settings-profile-avatar-pick-btn" data-schoolhub-always-allowed="1" class="absolute -bottom-1 -right-1 w-10 h-10 rounded-full bg-primary hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg border-2 border-white transition"><i class="fas fa-camera text-sm"></i></button>
-            <input type="file" id="settings-profile-avatar-input" accept="image/*" class="hidden" data-schoolhub-always-allowed="1">
+      <div class="space-y-3 settings-profile-form" data-schoolhub-always-allowed="1">
+        <div class="flex flex-col items-center pb-0.5">
+          <div class="relative w-28 h-28">
+            <div id="user-profile-avatar-initial" class="w-28 h-28 rounded-full bg-gradient-to-tr from-primary to-purple-500 text-white flex items-center justify-center text-4xl font-bold shadow-md select-none">U</div>
+            <img id="user-profile-avatar-img" class="hidden absolute inset-0 w-28 h-28 rounded-full object-cover border-4 border-white shadow-md cursor-pointer" alt="รูปโปรไฟล์" title="กดเพื่อดูรูปขนาดเต็ม">
+            <button type="button" id="user-profile-avatar-pick-btn" data-schoolhub-always-allowed="1" title="แก้ไขรูปโปรไฟล์" class="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-primary hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg border-2 border-white transition"><i class="fas fa-camera text-sm"></i></button>
+            <input type="file" id="user-profile-avatar-input" accept="image/*" class="hidden" data-schoolhub-always-allowed="1">
           </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-bold text-slate-700">รูปโปรไฟล์</div>
-            <div class="text-xs text-slate-400 mt-0.5 leading-5">อัปโหลดรูป JPG/PNG ระบบจะบีบอัดให้อัตโนมัติก่อนบันทึก</div>
-            <button type="button" id="settings-profile-avatar-remove-btn" data-schoolhub-always-allowed="1" class="hidden mt-2 text-xs font-bold text-rose-500 hover:text-rose-700"><i class="fas fa-trash mr-1"></i>ลบรูปโปรไฟล์</button>
-          </div>
-        </div>
-        <div id="settings-profile-admin-username-wrap" class="hidden">
-          <label class="block text-sm font-bold text-slate-700 mb-1.5">ชื่อผู้ใช้ Admin</label>
-          <input id="settings-profile-admin-username-input" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-indigo-100 focus:border-primary" placeholder="เช่น Admin" data-schoolhub-always-allowed="1">
+          <button type="button" id="user-profile-avatar-remove-btn" data-schoolhub-always-allowed="1" class="hidden mt-1.5 text-xs font-bold text-rose-500 hover:text-rose-700"><i class="fas fa-trash mr-1"></i>ลบรูปโปรไฟล์</button>
         </div>
         <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1.5">ชื่อที่แสดง</label>
-          <input id="settings-profile-display-name-input" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-indigo-100 focus:border-primary" placeholder="ชื่อ - นามสกุล" data-schoolhub-always-allowed="1">
+          <label class="block text-xs font-bold text-slate-700 mb-1">ชื่อที่แสดง</label>
+          <input id="profile-display-name-input" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-4 focus:ring-indigo-100 focus:border-primary" placeholder="ชื่อ - นามสกุล" data-schoolhub-always-allowed="1">
         </div>
         <div>
-          <label class="block text-sm font-bold text-slate-700 mb-1.5">อีเมล</label>
-          <input id="settings-profile-email-input" type="text" class="w-full bg-slate-100 border border-slate-200 rounded-2xl px-4 py-3 text-slate-500" readonly data-schoolhub-always-allowed="1">
+          <label class="block text-xs font-bold text-slate-700 mb-1">อีเมล</label>
+          <input id="profile-email-input" type="text" class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-500" readonly data-schoolhub-always-allowed="1">
         </div>
-        <div id="settings-admin-profile-password-wrap" class="hidden bg-rose-50 border border-rose-100 rounded-2xl p-4">
-          <label class="block text-sm font-bold text-rose-700 mb-1.5">รหัสผ่าน Admin ใหม่</label>
-          <input id="settings-admin-profile-password-input" type="password" class="w-full bg-white border border-rose-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-rose-100 focus:border-rose-400" placeholder="เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน" data-schoolhub-always-allowed="1">
-          <p class="text-xs text-rose-500 mt-2">บัญชี Admin สามารถแก้ชื่อผู้ใช้ อีเมล และรหัสผ่านได้จาก Settings โดยตรง</p>
+        <div id="admin-profile-password-wrap" class="hidden bg-rose-50 border border-rose-100 rounded-xl p-3">
+          <label class="block text-xs font-bold text-rose-700 mb-1">รหัสผ่าน Admin ใหม่</label>
+          <input id="admin-profile-password-input" type="password" class="w-full bg-white border border-rose-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-4 focus:ring-rose-100 focus:border-rose-400" placeholder="เว้นว่างไว้ถ้าไม่ต้องการเปลี่ยน" data-schoolhub-always-allowed="1">
+          <p class="text-[11px] text-rose-500 mt-1.5">บัญชี Admin สามารถแก้ชื่อและรหัสผ่านได้จากโปรไฟล์นี้โดยตรง</p>
         </div>
-        <div class="grid grid-cols-1 gap-3 pt-2">
-          <button type="button" data-settings-save-profile data-schoolhub-always-allowed="1" class="w-full bg-primary hover:bg-indigo-700 text-white font-black py-3.5 rounded-2xl shadow-lg shadow-indigo-100 transition"><i class="fas fa-save mr-1"></i> <span data-i18n="saveProfile">บันทึกโปรไฟล์</span></button>
-          <button type="button" data-settings-reset-password class="forgot-password-link w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold py-3.5 rounded-2xl border border-amber-200 transition" data-schoolhub-always-allowed="1"><i class="fas fa-key mr-1"></i> ขอรีเซ็ตรหัสผ่าน</button>
+        <div id="admin-profile-notification-email-wrap" class="hidden bg-indigo-50/70 border border-indigo-100 rounded-xl p-3">
+          <label class="block text-xs font-bold text-slate-700 mb-1"><i class="fas fa-bell text-primary mr-1"></i>อีเมลรับการแจ้งเตือน (แอดมิน)</label>
+          <input id="admin-profile-notification-email-input" type="email" class="w-full bg-white border border-indigo-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:ring-4 focus:ring-indigo-100 focus:border-primary" placeholder="admin@example.com" data-schoolhub-always-allowed="1">
+          <p class="text-[11px] text-slate-500 mt-1.5">ระบบจะส่งอีเมลแจ้งเตือนมาที่นี่ เช่น คำขอสมัครแผน หรือข้อความจากผู้ใช้</p>
+          <button type="button" onclick="window.openNotificationSettings && window.openNotificationSettings()" class="mt-2 text-xs font-bold text-primary hover:underline" data-schoolhub-always-allowed="1"><i class="fas fa-sliders-h mr-1"></i>ตั้งค่าการแจ้งเตือนแบบละเอียด</button>
+        </div>
+        <div class="grid grid-cols-1 gap-2 pt-1">
+          <button id="user-profile-save-btn" onclick="saveUserProfileChanges()" class="w-full bg-primary hover:bg-indigo-700 text-white font-black py-3 rounded-xl text-sm shadow-lg shadow-indigo-100 transition" data-schoolhub-always-allowed="1"><i class="fas fa-save mr-1"></i> บันทึก</button>
+          <button type="button" data-reset-password class="forgot-password-link w-full bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold py-3 rounded-xl text-sm border border-amber-200 transition" onclick="return openResetPasswordPage(event)" data-schoolhub-always-allowed="1"><i class="fas fa-key mr-1"></i> ขอรีเซ็ตรหัสผ่าน</button>
         </div>
       </div>
     `;
@@ -626,13 +619,13 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
     ensureAdminProfileFields();
     const admin = isAdminSession();
     const authUser = auth.currentUser;
-    const displayInput = $('settings-profile-display-name-input');
-    const emailInput = $('settings-profile-email-input');
-    const usernameWrap = $('settings-profile-admin-username-wrap');
-    const usernameInput = $('settings-profile-admin-username-input');
-    const passWrap = $('settings-admin-profile-password-wrap');
-    const passInput = $('settings-admin-profile-password-input');
-    const resetBtn = document.querySelector('#schoolhub-settings-profile-host [data-settings-reset-password]');
+    const displayInput = $('profile-display-name-input');
+    const emailInput = $('profile-email-input');
+    const usernameWrap = $('profile-admin-username-wrap');
+    const usernameInput = $('profile-admin-username-input');
+    const passWrap = $('admin-profile-password-wrap');
+    const passInput = $('admin-profile-password-input');
+    const resetBtn = document.querySelector('#schoolhub-settings-profile-host [data-reset-password]');
 
     if (admin) {
       const d = await readAdminCred();
@@ -647,6 +640,10 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
         emailInput.classList.remove('bg-slate-100','text-slate-500');
         emailInput.classList.add('bg-slate-50');
       }
+      const notifWrap = $('admin-profile-notification-email-wrap');
+      const notifInput = $('admin-profile-notification-email-input');
+      if (notifWrap) notifWrap.classList.remove('hidden');
+      if (notifInput) notifInput.value = email || '';
       usernameWrap?.classList.remove('hidden');
       passWrap?.classList.remove('hidden');
       if (passInput) passInput.value = '';
@@ -658,6 +655,8 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
     } else {
       usernameWrap?.classList.add('hidden');
       passWrap?.classList.add('hidden');
+      const notifWrap = $('admin-profile-notification-email-wrap');
+      if (notifWrap) notifWrap.classList.add('hidden');
       if (displayInput) displayInput.value = authUser?.displayName || norm($('user-display-name')?.textContent) || '';
       if (emailInput) {
         emailInput.value = authUser?.email || norm($('user-display-email')?.textContent) || '';
@@ -676,8 +675,8 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
     if ($('user-avatar-initial')) $('user-avatar-initial').textContent = (name || 'U').trim().charAt(0).toUpperCase();
     
     // อัปเดตชื่อในหน้าโปรไฟล์ดั้งเดิม (ถ้ามี) เพื่อให้ข้อมูลตรงกัน
-    if ($('user-profile-display-name')) $('user-profile-display-name').value = name || '';
-    if ($('user-profile-display-email')) $('user-profile-display-email').value = email || '';
+    if ($('profile-display-name-input')) $('profile-display-name-input').value = name || '';
+    if ($('profile-email-input')) $('profile-email-input').value = email || '';
     if ($('user-profile-avatar-initial')) $('user-profile-avatar-initial').textContent = (name || 'U').trim().charAt(0).toUpperCase();
 
     // แจ้งเตือนส่วนอื่นๆ ของระบบว่าข้อมูลมีการเปลี่ยนแปลง
@@ -687,7 +686,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
   async function saveInlineProfile(){
     moveProfileIntoSettings();
     ensureAdminProfileFields();
-    const displayName = norm($('settings-profile-display-name-input')?.value);
+    const displayName = norm($('profile-display-name-input')?.value);
     if (!displayName) return alertBox('กรอกข้อมูลไม่ครบ', 'กรุณากรอกชื่อที่แสดง', true);
     const admin = isAdminSession();
     loader(true);
@@ -699,9 +698,9 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
 
       if (admin) {
         const old = await readAdminCred();
-        const username = norm($('settings-profile-admin-username-input')?.value || old.username || 'Admin') || 'Admin';
-        const email = norm($('settings-profile-email-input')?.value || old.email || '');
-        const newPass = norm($('settings-admin-profile-password-input')?.value);
+        const username = norm($('profile-admin-username-input')?.value || old.username || 'Admin') || 'Admin';
+        const email = norm($('profile-email-input')?.value || old.email || '');
+        const newPass = norm($('admin-profile-password-input')?.value);
         const password = newPass || old.password || localStorage.getItem('schoolhub_admin_password') || 'Admin123';
         if (password.length < 6) throw new Error('รหัสผ่าน Admin ต้องมีอย่างน้อย 6 ตัวอักษร');
         if (email && !isEmail(email)) throw new Error('กรุณากรอกอีเมลให้ถูกต้อง หรือเว้นว่างไว้');
@@ -722,7 +721,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
         localStorage.setItem('schoolhub_admin_email', email || username);
         if (newPass) localStorage.setItem('schoolhub_admin_password', newPass);
         setHeader(displayName, email || username);
-        if ($('settings-admin-profile-password-input')) $('settings-admin-profile-password-input').value = '';
+        if ($('admin-profile-password-input')) $('admin-profile-password-input').value = '';
         renderAccountSummary();
         alertBox('บันทึกสำเร็จ', 'บันทึกโปรไฟล์ Admin ลง Firebase แล้ว');
       } else {
@@ -733,7 +732,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
           if (typeof window.addUserToDirectory === 'function') await window.addUserToDirectory(user, displayName, 'user');
           else await setDoc(doc(db, 'public_users_directory', String(user.email || user.uid).toLowerCase()), { uid:user.uid, email:user.email || '', name:displayName, displayName, role:'user', updatedAt:serverTimestamp() }, { merge:true });
         } catch(e) { console.warn('directory profile sync skipped:', e); }
-        setHeader(displayName, user.email || norm($('settings-profile-email-input')?.value));
+        setHeader(displayName, user.email || norm($('profile-email-input')?.value));
         renderAccountSummary();
         alertBox('บันทึกสำเร็จ', 'แก้ไขข้อมูลแสดงผลของบัญชีเรียบร้อยแล้ว');
       }
@@ -1174,11 +1173,11 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
   window.saveUserProfileChanges = async function(){
     const isAdmin = isAdminSession();
     const authUser = auth.currentUser;
-    const displayName = norm($('settings-profile-display-name-input')?.value);
+    const displayName = norm($('profile-display-name-input')?.value);
     if (!displayName) return alertBox('กรอกข้อมูลไม่ครบ', 'กรุณากรอกชื่อที่แสดง', true);
     
     // ตั้ง Loading state บนปุ่มบันทึก
-    const saveBtn = document.querySelector('#schoolhub-settings-profile-host button[data-settings-save-profile]');
+    const saveBtn = document.querySelector('#schoolhub-settings-profile-host #user-profile-save-btn');
     const origHtml = saveBtn?.innerHTML;
     if (saveBtn) {
       saveBtn.disabled = true;
@@ -1195,9 +1194,9 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
 
       if (isAdmin) {
         const old = await readAdminCred();
-        const username = norm($('settings-profile-admin-username-input')?.value || old.username || 'Admin') || 'Admin';
-        const email = norm($('settings-profile-email-input')?.value || old.email || '');
-        const newPass = norm($('settings-admin-profile-password-input')?.value);
+        const username = norm($('profile-admin-username-input')?.value || old.username || 'Admin') || 'Admin';
+        const email = norm($('profile-email-input')?.value || old.email || '');
+        const newPass = norm($('admin-profile-password-input')?.value);
         const password = newPass || old.password || localStorage.getItem('schoolhub_admin_password') || 'Admin123';
         if (password.length < 6) throw new Error('รหัสผ่าน Admin ต้องมีอย่างน้อย 6 ตัวอักษร');
         if (email && !isEmail(email)) throw new Error('กรุณากรอกอีเมลให้ถูกต้อง หรือเว้นว่างไว้');
@@ -1218,7 +1217,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
         localStorage.setItem('schoolhub_admin_email', email || username);
         if (newPass) localStorage.setItem('schoolhub_admin_password', newPass);
         setHeader(displayName, email || username);
-        if ($('settings-admin-profile-password-input')) $('settings-admin-profile-password-input').value = '';
+        if ($('admin-profile-password-input')) $('admin-profile-password-input').value = '';
         renderAccountSummary();
         showCustomAlertToast('บันทึกสำเร็จ', 'บันทึกโปรไฟล์ Admin ลง Firebase แล้ว', 'success');
       } else {
@@ -1228,7 +1227,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
           if (typeof window.addUserToDirectory === 'function') await window.addUserToDirectory(authUser, displayName, 'user');
           else await setDoc(doc(db, 'public_users_directory', String(authUser.email || authUser.uid).toLowerCase()), { uid:authUser.uid, email:authUser.email || '', name:displayName, displayName, role:'user', updatedAt:serverTimestamp() }, { merge:true });
         } catch(e) { console.warn('directory profile sync skipped:', e); }
-        setHeader(displayName, authUser.email || norm($('settings-profile-email-input')?.value));
+        setHeader(displayName, authUser.email || norm($('profile-email-input')?.value));
         renderAccountSummary();
         showCustomAlertToast('บันทึกสำเร็จ', 'แก้ไขข้อมูลแสดงผลของบัญชีเรียบร้อยแล้ว', 'success');
       }
