@@ -89,7 +89,7 @@ import { getFirestore, collection, getDocs, query, orderBy, limit, where, doc, g
 
     const wrap = document.createElement('div');
     wrap.id = 'admin-mail-log-modal';
-    wrap.className = 'fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[250] hidden flex items-center justify-center p-4 fade-in';
+    wrap.className = 'fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[2147483647] hidden flex items-center justify-center p-4 fade-in';
     wrap.innerHTML = `
       <div class="bg-white rounded-[1.75rem] w-full max-w-5xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
         <!-- Header -->

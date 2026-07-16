@@ -375,7 +375,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDo
     if ($('admin-notification-settings-modal')) return $('admin-notification-settings-modal');
     const wrap = document.createElement('div');
     wrap.id = 'admin-notification-settings-modal';
-    wrap.className = 'fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[200] hidden flex items-center justify-center p-4 fade-in';
+    wrap.className = 'fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[2147483647] hidden flex items-center justify-center p-4 fade-in';
     wrap.innerHTML = `
       <div class="bg-white rounded-[1.75rem] w-full max-w-lg shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
         <div class="p-4 border-b border-slate-100 bg-indigo-50/60 flex justify-between items-start gap-4 shrink-0">
