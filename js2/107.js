@@ -82,7 +82,13 @@ W.shStarRender=function(){
       }
       opts = `<option value="${sets[0].id}" selected>${esc(sets[0].name)}</option>`;
     } else if (sets.length > 1) {
-      // Multiple sets: show dropdown with placeholder
+      // Multiple sets: require manual selection. If currentSetId was carried
+      // over from back when there was only 1 set (auto-selected), it's no
+      // longer valid now that there are 2+ — reset so the placeholder shows
+      // by default instead of silently keeping "เซตที่ 1" selected.
+      if (cd.currentSetId && !sets.some(s => s.id === cd.currentSetId)) {
+        cd.currentSetId = null;
+      }
       opts = '<option value="">-- เลือกเซต --</option>';
       sets.forEach(s => {
         opts += `<option value="${s.id}" ${s.id===cd.currentSetId?'selected':''}>${esc(s.name)}</option>`;
@@ -92,6 +98,11 @@ W.shStarRender=function(){
       opts = '<option value="">ยังไม่มีเซต</option>';
     }
     setSel.innerHTML = opts;
+    // Safety net: explicitly sync the live DOM value to cd.currentSetId.
+    // Relying only on the "selected" attribute in the HTML string above can
+    // fail to stick in some cases, which is what made picking a different
+    // set appear to "bounce back" to the placeholder.
+    setSel.value = cd.currentSetId || '';
   }
 
   // Render Week Selector (Always force manual selection — placeholder as default)
@@ -269,7 +280,10 @@ W.shStarAddSet = function(){
   const cd=starCourseData(cid);
   const newSet = { id: 'set_'+Date.now(), name: name, groups: [], weekStars: {} };
   cd.sets.push(newSet);
-  if(!cd.currentSetId) cd.currentSetId = newSet.id;
+  // Auto-select only when this is the one and only set. Once there are 2+
+  // sets, selection must always be made manually — even if one was already
+  // auto-selected earlier while it was the sole set.
+  cd.currentSetId = (cd.sets.length === 1) ? newSet.id : null;
   inp.value = '';
   shStarSetRender();
   shStarRender();
