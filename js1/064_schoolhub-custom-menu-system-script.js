@@ -75,7 +75,7 @@
               </div>
             </div>
           </div>
-          <div id="schoolhub-custom-menu-user-view" class="view-section hidden fade-in space-y-4">
+          <div id="schoolhub-custom-menu-user-view" class="view-section hidden fade-in space-y-4 shcm-popup-mode">
             <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-4">
               <div class="flex items-center justify-between gap-3 mb-3">
                 <div>
