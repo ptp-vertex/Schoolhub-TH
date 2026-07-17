@@ -175,18 +175,12 @@
             <select id="conversion-set-id" style="flex:1;min-width:160px" onchange="window.updateConversionPreview()">${setOptions}</select>
           </div>
 
-          <div class="sh-week-row">
+          <div class="sh-week-row" id="conversion-mode-row">
             <label><i class="fas fa-user-check" style="color:#d97706;margin-right:4px"></i>เลือกแบบ</label>
             <select id="conversion-mode" style="flex:1;min-width:160px" onchange="window.onConversionModeChange()">
               <option value="group">ทั้งเซต (ตามกลุ่ม)</option>
               <option value="individual">รายคน (เลือกเอง)</option>
             </select>
-          </div>
-
-          <div class="sh-week-row" id="conversion-selectall-row" style="display:none">
-            <label style="cursor:pointer;display:flex;align-items:center;gap:6px">
-              <input type="checkbox" id="conversion-select-all" checked onchange="window.toggleConversionSelectAll(this.checked)"> ติ๊กแปลงทุกคน
-            </label>
           </div>
 
           <div class="sh-week-row">
@@ -207,6 +201,12 @@
             <input type="number" id="conv-max-score" style="width:90px" value="20" oninput="window.updateConversionPreview()">
             <label style="color:#e11d48">คะแนนต่ำสุด (โหล)</label>
             <input type="number" id="conv-min-score" style="width:90px" value="10" oninput="window.updateConversionPreview()">
+          </div>
+
+          <div class="sh-week-row" id="conversion-selectall-row" style="display:none">
+            <label style="cursor:pointer;display:flex;align-items:center;gap:6px">
+              <input type="checkbox" id="conversion-select-all" checked onchange="window.toggleConversionSelectAll(this.checked)"> เลือกทุกคน
+            </label>
           </div>
 
           <table class="sh-bonus-table">
@@ -272,6 +272,26 @@
     return starSets.find(s => s.id === setId);
   }
 
+  // เมื่อเลือก "ทุกเซท" — คำนวณดาวรวมของ "รายคน" เหมือนหน้าภาพรวม (รวมดาวจากทุกกลุ่ม/ทุกเซทที่นักเรียนคนนั้นอยู่)
+  // แทนที่จะรวมเป็น "กลุ่ม" แบบเดิม แล้วเรียงลำดับตามรายชื่อหน้าภาพรวม
+  function computeAllModeStudentRows(cid, starSets){
+    var overview = window.getOverviewStudents ? window.getOverviewStudents(cid) : {students:[]};
+    var courseStudents = overview.students || [];
+    return courseStudents.map(function(st){
+      var totalStars = 0;
+      starSets.forEach(function(s){
+        var groups = s.groups || [];
+        var weekStars = s.weekStars || {};
+        var studentGroups = groups.filter(function(g){ return (g.members||[]).indexOf(st.id) !== -1; });
+        Object.keys(weekStars).forEach(function(wk){
+          var weekData = weekStars[wk] || {};
+          studentGroups.forEach(function(g){ totalStars += (weekData[g.id] || 0); });
+        });
+      });
+      return { studentId: st.id, studentName: st.name || st.id, stars: totalStars };
+    });
+  }
+
   window.updateConversionPreview = function(){
     var cid = window.currentActiveCourseId;
     var setId = document.getElementById('conversion-set-id').value;
@@ -283,6 +303,9 @@
     if (!setId) {
       window.__currentGroupData = null;
       window.__currentStudentRows = null;
+      window.__conversionIsAllMode = false;
+      var modeRowEarly = document.getElementById('conversion-mode-row');
+      if (modeRowEarly) modeRowEarly.style.display = '';
       if (selectAllRowEarly) selectAllRowEarly.style.display = 'none';
       if (theadElEarly) theadElEarly.innerHTML = '';
       if (listElEarly) listElEarly.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px 12px"><i class="fas fa-hand-pointer" style="font-size:22px;display:block;margin-bottom:8px"></i>กรุณาเลือก <b>เซท</b> ก่อน (หรือเลือก "เลือกทุกเซท" เพื่อรวมทุกเซท)</td></tr>';
@@ -315,6 +338,74 @@
     var starSets = starCourseData.sets || [];
     var currentSet = getEffectiveSet(starSets, setId);
     if (!currentSet) return;
+
+    var isAllMode = (setId === 'ALL');
+    window.__conversionIsAllMode = isAllMode;
+
+    // เมื่อเลือก "ทุกเซท" ไม่ต้องให้เลือก "แบบ" อีกต่อไป — บังคับเป็นรายคนเสมอ
+    // และคำนวณดาวรวมของนักเรียนแต่ละคนแบบเดียวกับหน้าภาพรวม (ไม่แยกกลุ่ม)
+    var modeRow = document.getElementById('conversion-mode-row');
+    if (modeRow) modeRow.style.display = isAllMode ? 'none' : '';
+    var modeSelEl = document.getElementById('conversion-mode');
+    if (isAllMode && modeSelEl) modeSelEl.value = 'individual';
+
+    var theadEl = document.getElementById('conversion-preview-thead');
+    var listEl = document.getElementById('conversion-preview-list');
+    var selectAllRow = document.getElementById('conversion-selectall-row');
+
+    if (isAllMode) {
+      var allRows = computeAllModeStudentRows(cid, starSets);
+      allRows.sort((a, b) => b.stars - a.stars);
+
+      var curRankAll = 0, lastStarsAll = -1;
+      allRows.forEach((r, i) => {
+        if (r.stars !== lastStarsAll) { curRankAll = i + 1; lastStarsAll = r.stars; }
+        r.rank = curRankAll;
+      });
+
+      var uniqueRanksAll = Array.from(new Set(allRows.map(r => r.rank))).sort((a,b) => a-b);
+      var totalUniqueAll = uniqueRanksAll.length;
+      allRows.forEach(r => {
+        if (totalUniqueAll <= 1) {
+          r.scaledScore = maxS;
+        } else {
+          var rankIdxAll = uniqueRanksAll.indexOf(r.rank);
+          r.scaledScore = maxS - (rankIdxAll * (maxS - minS) / (totalUniqueAll - 1));
+        }
+        r.scaledScore = Math.round(r.scaledScore * 100) / 100;
+      });
+
+      var selKeyAll = 'all|' + setId;
+      if (window.__conversionSelectionKey !== selKeyAll || !window.__conversionSelectedStudentIds) {
+        window.__conversionSelectionKey = selKeyAll;
+        window.__conversionSelectedStudentIds = new Set(allRows.map(r => r.studentId));
+      }
+      var selectedIdsAll = window.__conversionSelectedStudentIds;
+
+      if (selectAllRow) selectAllRow.style.display = '';
+      if (theadEl) theadEl.innerHTML = '<tr><th width="34" style="text-align:center"></th><th width="40" style="text-align:center">ลำดับ</th><th>ชื่อ</th><th style="text-align:center">ดาวรวม</th><th style="text-align:center">คะแนนที่แปลง</th></tr>';
+
+      var selectAllCbAll = document.getElementById('conversion-select-all');
+      if (selectAllCbAll) selectAllCbAll.checked = allRows.length > 0 && allRows.every(r => selectedIdsAll.has(r.studentId));
+
+      var previewHtmlAll = allRows.map(r => {
+        var checked = selectedIdsAll.has(r.studentId);
+        return `
+      <tr style="${checked ? '' : 'opacity:.4'}">
+        <td style="text-align:center"><input type="checkbox" ${checked ? 'checked' : ''} onchange="window.toggleConversionStudent('${r.studentId}', this.checked)"></td>
+        <td style="text-align:center;font-weight:800;color:#92400e">#${r.rank}</td>
+        <td style="font-weight:700;color:#1e293b">${esc(r.studentName)}</td>
+        <td style="text-align:center">${r.stars} ⭐</td>
+        <td style="text-align:center;font-weight:800;color:#d97706">${window.formatScoreDisplay(r.scaledScore, 2)}</td>
+      </tr>
+        `;
+      }).join('');
+
+      if (listEl) listEl.innerHTML = previewHtmlAll;
+      window.__currentStudentRows = allRows;
+      window.__currentGroupData = null;
+      return;
+    }
 
     var groups = currentSet.groups || [];
     var weekStars = currentSet.weekStars || {};
@@ -351,11 +442,7 @@
     });
 
     var mode = document.getElementById('conversion-mode') ? document.getElementById('conversion-mode').value : 'group';
-    var selectAllRow = document.getElementById('conversion-selectall-row');
     if (selectAllRow) selectAllRow.style.display = (mode === 'individual') ? '' : 'none';
-
-    var theadEl = document.getElementById('conversion-preview-thead');
-    var listEl = document.getElementById('conversion-preview-list');
 
     if (mode === 'individual') {
       // ขยายข้อมูลจาก "รายกลุ่ม" เป็น "รายคน" — แต่ละคนสืบคะแนน/ดาวมาจากกลุ่มของตัวเอง
@@ -568,10 +655,11 @@
 
   window.applyStarConversion = async function(){
     var cid = window.currentActiveCourseId;
-    if (!cid || !window.__currentGroupData) return;
-
-    var groupData = window.__currentGroupData;
     var setId = document.getElementById('conversion-set-id').value;
+    var isAllMode = (setId === 'ALL');
+
+    if (!cid || (!isAllMode && !window.__currentGroupData) || (isAllMode && !window.__currentStudentRows)) return;
+
     if (!setId) {
       if (window.showCustomAlert) window.showCustomAlert('กรุณาเลือกเซท', 'กรุณาเลือกเซท (หรือ "เลือกทุกเซท") ก่อนบันทึกคะแนน', true);
       return;
@@ -583,8 +671,19 @@
     var currentSet = getEffectiveSet(starCourseData.sets || [], setId);
     if (!currentSet) return;
 
-    // โหมด "รายคน" — เฉพาะคนที่ติ๊กไว้เท่านั้นที่จะถูกบันทึกคะแนน
-    var conversionMode = document.getElementById('conversion-mode') ? document.getElementById('conversion-mode').value : 'group';
+    var groupData, conversionMode;
+    if (isAllMode) {
+      // โหมด "ทุกเซท" — เลือกแบบ "รายคน" เสมอ โดยแปลงข้อมูลรายคน (ดาวรวมทั้งคอร์ส) ให้อยู่ในรูปแบบ
+      // เดียวกับ groupData/currentSet.groups (กลุ่มละ 1 คน) เพื่อให้ใช้โค้ดบันทึกคะแนนชุดเดิมได้เลย
+      conversionMode = 'individual';
+      var allRows = window.__currentStudentRows || [];
+      groupData = allRows.map(function(r){ return { id: r.studentId, name: r.studentName, stars: r.stars, rank: r.rank, scaledScore: r.scaledScore }; });
+      currentSet = { id: 'ALL', name: currentSet.name, groups: allRows.map(function(r){ return { id: r.studentId, name: r.studentName, members: [r.studentId] }; }) };
+    } else {
+      groupData = window.__currentGroupData;
+      // โหมด "รายคน" — เฉพาะคนที่ติ๊กไว้เท่านั้นที่จะถูกบันทึกคะแนน
+      conversionMode = document.getElementById('conversion-mode') ? document.getElementById('conversion-mode').value : 'group';
+    }
     var selectedIds = (conversionMode === 'individual') ? (window.__conversionSelectedStudentIds || new Set()) : null;
     if (selectedIds && selectedIds.size === 0) {
       if (window.showCustomAlert) window.showCustomAlert('กรุณาเลือกนักเรียน', 'กรุณาติ๊กเลือกนักเรียนอย่างน้อย 1 คนก่อนบันทึกคะแนน', true);
