@@ -1,7 +1,7 @@
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc, onSnapshot, query, where, orderBy, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
   apiKey: "AIzaSyADAbTJEWivV1Nn-au7tXofStx4ADYTCM8",
@@ -692,6 +692,54 @@
             sessionStorage.setItem(`schoolhub_announcement_sessionclosed_${id}`, 'true');
         }
 
+        function getAnnouncementTrackingIdentity() {
+            if (currentUser) {
+                const key = getUserKey(currentUser) || currentUser.email || currentUser.uid || 'ผู้ใช้งาน';
+                const name = currentUser.displayName || key;
+                return { key, name };
+            }
+            let guestId = localStorage.getItem('schoolhub_guest_id');
+            if (!guestId) {
+                guestId = 'guest_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+                localStorage.setItem('schoolhub_guest_id', guestId);
+            }
+            return { key: guestId, name: 'ผู้เยี่ยมชม (ไม่ระบุตัวตน)' };
+        }
+
+        function announcementStatDocId(announcementId, key) {
+            const safeKey = String(key).replace(/[\/\s]+/g, '_').slice(0, 150);
+            return `${announcementId}__${safeKey}`;
+        }
+
+        async function trackAnnouncementRead(announcementId) {
+            try {
+                const { key, name } = getAnnouncementTrackingIdentity();
+                const ref = doc(db, 'announcement_reads', announcementStatDocId(announcementId, key));
+                const now = Date.now();
+                let firstReadAt = now;
+                try {
+                    const snap = await getDoc(ref);
+                    if (snap.exists() && snap.data().firstReadAt) firstReadAt = snap.data().firstReadAt;
+                } catch (e) {}
+                await setDoc(ref, {
+                    announcementId, userKey: key, userName: name,
+                    firstReadAt, lastReadAt: now, readCount: increment(1)
+                }, { merge: true });
+            } catch (e) { console.warn('trackAnnouncementRead failed:', e); }
+        }
+
+        async function trackAnnouncementMute(announcementId, days) {
+            try {
+                const { key, name } = getAnnouncementTrackingIdentity();
+                const ref = doc(db, 'announcement_reads', announcementStatDocId(announcementId, key));
+                const now = Date.now();
+                await setDoc(ref, {
+                    announcementId, userKey: key, userName: name,
+                    muted: true, mutedAt: now, muteUntil: now + days * 24 * 60 * 60 * 1000
+                }, { merge: true });
+            } catch (e) { console.warn('trackAnnouncementMute failed:', e); }
+        }
+
         function getRotationMs(items) {
             const first = (items || []).find(a => Number(a.rotationSeconds) > 0);
             const sec = Math.max(2, Number(first?.rotationSeconds || 6));
@@ -806,6 +854,7 @@
             if (mute) mute.checked = false;
             modal.dataset.announcementId = popup.id;
             modal.classList.remove('hidden');
+            trackAnnouncementRead(popup.id);
         }
 
         window.openAnnouncementDetail = (id) => {
@@ -841,10 +890,60 @@
             const id = modal.dataset.announcementId;
             const mute = document.getElementById('public-popup-mute-10d');
             if (id) {
-                if (mute && mute.checked) muteAnnouncementFor(id, 10);
+                if (mute && mute.checked) { muteAnnouncementFor(id, 10); trackAnnouncementMute(id, 10); }
                 else closeAnnouncementForSession(id);
             }
             modal.classList.add('hidden');
+        };
+
+        window.openAnnouncementStats = async (id) => {
+            const modal = document.getElementById('announcement-stats-popup');
+            if (!modal) return;
+            const a = (publicAnnouncements || []).find(x => x.id === id);
+            document.getElementById('announcement-stats-title').textContent = a ? a.title : '';
+            document.getElementById('announcement-stats-list').innerHTML = '';
+            document.getElementById('announcement-stats-empty').classList.add('hidden');
+            document.getElementById('announcement-stats-loading').classList.remove('hidden');
+            document.getElementById('announcement-stats-read-count').textContent = '0';
+            document.getElementById('announcement-stats-mute-count').textContent = '0';
+            modal.classList.remove('hidden');
+            try {
+                const qs = await withTimeout(getDocs(query(collection(db, 'announcement_reads'), where('announcementId', '==', id))), 9000, 'loadAnnouncementStats');
+                const rows = [];
+                let readCount = 0, muteCount = 0;
+                qs.forEach(d => {
+                    const x = d.data();
+                    if (x.firstReadAt) readCount++;
+                    if (x.muted) muteCount++;
+                    rows.push(x);
+                });
+                rows.sort((x, y) => (y.lastReadAt || y.mutedAt || 0) - (x.lastReadAt || x.mutedAt || 0));
+                document.getElementById('announcement-stats-read-count').textContent = readCount;
+                document.getElementById('announcement-stats-mute-count').textContent = muteCount;
+                const tbody = document.getElementById('announcement-stats-list');
+                if (!rows.length) {
+                    document.getElementById('announcement-stats-empty').classList.remove('hidden');
+                } else {
+                    tbody.innerHTML = rows.map(x => {
+                        const muteExpired = x.muteUntil && x.muteUntil < Date.now();
+                        return `<tr class="border-t border-slate-100">
+                            <td class="py-2 font-semibold text-slate-700">${escapeHTML(x.userName || x.userKey || '-')}</td>
+                            <td class="py-2 text-slate-500 whitespace-nowrap">${x.firstReadAt ? formatAdminDateTime(x.firstReadAt) : '-'}</td>
+                            <td class="py-2 text-slate-500 whitespace-nowrap">${x.lastReadAt ? formatAdminDateTime(x.lastReadAt) : '-'}</td>
+                            <td class="py-2 text-center text-slate-500">${x.readCount || 0}</td>
+                            <td class="py-2 text-slate-500 whitespace-nowrap">${x.muted && x.muteUntil ? formatAdminDateTime(x.muteUntil) + (muteExpired ? ' <span class="text-rose-500 font-bold">(หมดอายุแล้ว)</span>' : ' <span class="text-emerald-600 font-bold">(กำลังซ่อน)</span>') : '-'}</td>
+                        </tr>`;
+                    }).join('');
+                }
+            } catch (e) {
+                document.getElementById('announcement-stats-empty').textContent = 'โหลดสถิติไม่สำเร็จ: ' + getFirebaseErrorText(e);
+                document.getElementById('announcement-stats-empty').classList.remove('hidden');
+            }
+            document.getElementById('announcement-stats-loading').classList.add('hidden');
+        };
+
+        window.closeAnnouncementStatsPopup = () => {
+            document.getElementById('announcement-stats-popup')?.classList.add('hidden');
         };
 
         window.openLoginFromLanding = () => {
@@ -886,6 +985,7 @@
                     <td class="text-center"><span class="px-3 py-1 rounded-full text-xs font-bold ${a.active !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${a.active !== false ? 'เปิด' : 'ปิด'}</span></td>
                     <td class="text-right whitespace-nowrap">
                         <button onclick="editAdminAnnouncement('${a.id}')" class="bg-amber-50 text-amber-600 border border-amber-100 px-3 py-1.5 rounded-lg text-sm font-bold"><i class="fas fa-pen"></i> แก้ไข</button>
+                        <button onclick="openAnnouncementStats('${a.id}')" class="bg-indigo-50 text-indigo-600 border border-indigo-100 px-3 py-1.5 rounded-lg text-sm font-bold ml-1"><i class="fas fa-chart-column"></i> สถิติ</button>
                         <button onclick="deleteAdminAnnouncement('${a.id}')" class="bg-rose-50 text-rose-600 border border-rose-100 px-3 py-1.5 rounded-lg text-sm font-bold ml-1"><i class="fas fa-trash"></i> ลบ</button>
                     </td>
                 </tr>`).join('');
