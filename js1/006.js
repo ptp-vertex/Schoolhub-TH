@@ -27,27 +27,57 @@
             });
 
             // FIX: แถบประกาศด้านบนไม่ขึ้นให้ผู้ใช้ทั่วไปสม่ำเสมอ (แต่แอดมินเห็นทุกครั้ง)
-            // สาเหตุ: การแสดงประกาศจริงทำงานอยู่ใน js1/007.js ซึ่งเป็น Firebase module
+            // สาเหตุตัวจริง: การแสดงประกาศทำงานอยู่ใน js1/007.js ซึ่งเป็น Firebase ES module
             // (type="module") — ถ้าเครือข่ายของผู้เข้าชม (มือถือ/บริษัท/ตัวบล็อกโฆษณา)
             // โหลดสคริปต์จาก gstatic/googleapis ช้าหรือถูกบล็อก โมดูลนี้จะไม่ทำงานทันเวลา
-            // (หรือไม่ทำงานเลย) ทำให้ onAuthStateChanged ไม่ยิง และไม่มีใครเรียก
-            // renderPublicAnnouncements() ผู้ใช้จึงไม่เห็นแถบประกาศในรอบนั้น
-            // แอดมินมักเปิดจากเครื่อง/เน็ตที่เสถียรกว่า โมดูลจึงโหลดสำเร็จทุกครั้ง เลยเห็นตลอด
-            // วิธีแก้: มีตัวสำรองที่ไม่พึ่ง Firebase เลย อ่านแคชประกาศล่าสุดที่เคยโหลดสำเร็จ
-            // (เก็บไว้ใน localStorage โดย 007.js ทุกครั้งที่โหลดสำเร็จ) มาแสดงแถบบนหน้าหลักไปก่อน
-            // ถ้า 007.js โหลดสำเร็จภายหลัง มันจะ render ทับด้วยข้อมูลสดอีกที ไม่กระทบกัน
+            // (หรือไม่ทำงานเลย) ทำให้ไม่มีใครเรียก renderPublicAnnouncements() ผู้ใช้จึงไม่เห็น
+            // แถบประกาศในรอบนั้น แอดมินมักเปิดจากเครื่อง/เน็ตที่เสถียรกว่า โมดูลจึงโหลดสำเร็จทุกครั้ง
+            //
+            // การแก้ครั้งก่อน (อ่านแคชจาก localStorage) ยังไม่พอ เพราะแคชจะถูกเขียนก็ต่อเมื่อ
+            // 007.js เคยโหลดสำเร็จมาก่อนอย่างน้อย 1 ครั้งเท่านั้น ถ้าเน็ตแย่ตั้งแต่ครั้งแรก
+            // ที่เข้าเว็บ (หรือเปิดจากเครื่อง/เบราว์เซอร์ใหม่) จะไม่มีแคชให้ใช้เลย ปัญหาจึงยังไม่หาย
+            //
+            // วิธีแก้จริง: ดึงประกาศตรงจาก Firestore REST API ด้วย fetch() ธรรมดา (ไม่ใช้ Firebase
+            // SDK/module เลย) จาก script ปกติตัวนี้ซึ่งโหลดเร็วและไม่ต้องรอ import จาก gstatic
+            // ทำให้แถบประกาศขึ้นได้แม้ 007.js จะยังโหลดไม่เสร็จหรือโหลดไม่สำเร็จเลยก็ตาม
+            // ถ้า 007.js โหลดสำเร็จภายหลัง มันจะ render ทับด้วยข้อมูลสด (real-time) อีกที ไม่กระทบกัน
+            var SH_ANNOUNCEMENT_CACHE_KEY = 'schoolhub_public_announcements_cache';
+            var SH_FIRESTORE_PROJECT_ID = 'shoolhub-5677e';
+            var SH_FIRESTORE_API_KEY = 'AIzaSyADAbTJEWivV1Nn-au7tXofStx4ADYTCM8';
+
             function escAnnouncementFallback(v) {
                 return String(v || '').replace(/[&<>'"]/g, function (ch) {
                     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch];
                 });
             }
-            function renderCachedAnnouncementTopbarFallback() {
+
+            // แปลงค่า field แบบ Firestore REST (typed value) ให้เป็นค่า JS ปกติ
+            function firestoreRestValueToJS(v) {
+                if (!v || typeof v !== 'object') return null;
+                if ('stringValue' in v) return v.stringValue;
+                if ('booleanValue' in v) return v.booleanValue;
+                if ('integerValue' in v) return Number(v.integerValue);
+                if ('doubleValue' in v) return Number(v.doubleValue);
+                if ('nullValue' in v) return null;
+                if ('timestampValue' in v) return v.timestampValue;
+                if ('arrayValue' in v) {
+                    var arr = (v.arrayValue && v.arrayValue.values) || [];
+                    return arr.map(firestoreRestValueToJS);
+                }
+                if ('mapValue' in v) {
+                    var fields = (v.mapValue && v.mapValue.fields) || {};
+                    var obj = {};
+                    Object.keys(fields).forEach(function (k) { obj[k] = firestoreRestValueToJS(fields[k]); });
+                    return obj;
+                }
+                return null;
+            }
+
+            function renderAnnouncementTopbarFromItems(items) {
                 try {
-                    if (typeof window.renderPublicAnnouncements === 'function') return; // 007.js โหลดสำเร็จแล้ว ปล่อยให้มันทำงานเอง
+                    if (typeof window.renderPublicAnnouncements === 'function') return; // 007.js โหลดสำเร็จแล้ว ปล่อยให้มันทำงานเอง (ข้อมูล real-time แม่นกว่า)
                     var topbar = document.getElementById('public-announcement-topbar');
                     if (!topbar || !topbar.classList.contains('hidden')) return; // มีอะไรแสดงอยู่แล้ว หรือหา element ไม่เจอ ไม่ต้องทำอะไร
-                    var raw = localStorage.getItem('schoolhub_public_announcements_cache');
-                    var items = raw ? JSON.parse(raw) : [];
                     if (!Array.isArray(items) || !items.length) return;
                     var now = Date.now();
                     var active = items.filter(function (a) {
@@ -66,9 +96,43 @@
                     var top = active[0];
                     topbar.classList.remove('hidden');
                     topbar.innerHTML = '<div class="bg-indigo-600 text-white px-4 py-3 shadow-lg"><div class="max-w-7xl mx-auto flex items-start gap-3"><i class="fas fa-bullhorn mt-1"></i><div class="flex-1 min-w-0"><b>ประกาศ</b><span class="mx-2 hidden sm:inline">•</span><span class="font-bold break-words">' + escAnnouncementFallback(top.title) + '</span><span class="mx-2 hidden sm:inline">•</span><span class="block sm:inline break-words">' + escAnnouncementFallback(top.message) + '</span></div></div></div>';
+                } catch (e) { console.warn('SchoolHub: announcement fallback render failed:', e); }
+            }
+
+            function renderCachedAnnouncementTopbarFallback() {
+                try {
+                    var raw = localStorage.getItem(SH_ANNOUNCEMENT_CACHE_KEY);
+                    var items = raw ? JSON.parse(raw) : [];
+                    renderAnnouncementTopbarFromItems(items);
                 } catch (e) { console.warn('SchoolHub: cached announcement fallback failed:', e); }
             }
+
+            // ดึงประกาศตรงจาก Firestore REST API โดยไม่พึ่ง Firebase SDK/module เลย
+            // ใช้ fetch() ธรรมดา + timeout กันค้าง แล้วอัปเดต cache ให้ครั้งต่อ ๆ ไปเร็วขึ้นด้วย
+            function fetchAnnouncementsViaRestAndRender() {
+                try {
+                    if (typeof fetch !== 'function') return;
+                    var url = 'https://firestore.googleapis.com/v1/projects/' + SH_FIRESTORE_PROJECT_ID +
+                        '/databases/(default)/documents/system_settings/announcements?key=' + SH_FIRESTORE_API_KEY;
+                    var controller = (typeof AbortController === 'function') ? new AbortController() : null;
+                    var timer = controller ? setTimeout(function () { controller.abort(); }, 6000) : null;
+                    fetch(url, { method: 'GET', signal: controller ? controller.signal : undefined })
+                        .then(function (res) { return res.ok ? res.json() : null; })
+                        .then(function (data) {
+                            if (timer) clearTimeout(timer);
+                            if (!data || !data.fields || !data.fields.items) return;
+                            var items = firestoreRestValueToJS(data.fields.items) || [];
+                            if (!Array.isArray(items)) return;
+                            try { localStorage.setItem(SH_ANNOUNCEMENT_CACHE_KEY, JSON.stringify(items)); } catch (e) {}
+                            renderAnnouncementTopbarFromItems(items);
+                        })
+                        .catch(function (e) { if (timer) clearTimeout(timer); console.warn('SchoolHub: REST announcement fetch failed:', e); });
+                } catch (e) { console.warn('SchoolHub: REST announcement fetch setup failed:', e); }
+            }
+
             document.addEventListener('DOMContentLoaded', function () {
+                renderCachedAnnouncementTopbarFallback(); // แสดงจากแคชทันที (ถ้ามี) ไม่ต้องรอ
+                fetchAnnouncementsViaRestAndRender(); // ดึงข้อมูลสดแบบไม่พึ่ง Firebase module ขนานไปด้วย
                 setTimeout(renderCachedAnnouncementTopbarFallback, 1800);
                 setTimeout(renderCachedAnnouncementTopbarFallback, 4500);
             });
