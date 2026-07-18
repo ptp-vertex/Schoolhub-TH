@@ -44,7 +44,8 @@
   }
   document.addEventListener('DOMContentLoaded', function(){
     installSwitchWrapper();
-    setInterval(function(){ installSwitchWrapper(); bringSlipPopup(); }, 500);
+    if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('slipHistoryFinalFix', function(){ installSwitchWrapper(); bringSlipPopup(); }, 2000); }
+    else { setInterval(function(){ installSwitchWrapper(); bringSlipPopup(); }, 500); }
     kickPaymentHistoryLoad(1600);
   });
   document.addEventListener('click', function(e){

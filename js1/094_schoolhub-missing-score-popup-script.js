@@ -177,5 +177,9 @@
     }
   }, true);
   document.addEventListener('DOMContentLoaded', function(){ setTimeout(annotateMissingScores, 500); });
-  setInterval(function(){ try{ annotateMissingScores(); }catch(e){} }, 1500);
+  if(window.schoolhubDebouncedRescan){
+    window.schoolhubDebouncedRescan('missingScoreAnnotate', function(){ try{ annotateMissingScores(); }catch(e){} }, 4000);
+  } else {
+    setInterval(function(){ try{ annotateMissingScores(); }catch(e){} }, 1500);
+  }
 })();

@@ -443,7 +443,8 @@ import { getFirestore, doc, getDoc, setDoc, getDocs, collection, serverTimestamp
     }catch(e){show('ตอบรับไม่ได้',e.message||String(e),true);}
   }
   onAuthStateChanged(auth,(u)=>{ if(u){ setTimeout(()=>{patchRender(); refreshIncomingInvites(); ensureTeamBox(); const p=new URLSearchParams(location.search); if(p.get('teamInvite')||p.get('teamOwner')||p.get('teamEmail')){ if(window.openUserPlanSelector) window.openUserPlanSelector(); else if(window.switchView) window.switchView('user-plans'); }},600); } });
-  const timer=setInterval(()=>{patchRender(); if(document.getElementById('user-current-plan-box')) ensureTeamBox();},800);
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('teamPlanCurrentBox', ()=>{patchRender(); if(document.getElementById('user-current-plan-box')) ensureTeamBox();}, 3000); }
+  else { const timer=setInterval(()=>{patchRender(); if(document.getElementById('user-current-plan-box')) ensureTeamBox();},800); }
   setTimeout(()=>clearInterval(timer),12000);
   setInterval(()=>{ if(getUser()) refreshIncomingInvites(); },30000);
 })();

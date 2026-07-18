@@ -242,5 +242,6 @@
     }
   });
   document.addEventListener('DOMContentLoaded', function(){ setTimeout(function(){ try{ window.initStaticDropdowns(); updatePlanBadges(); }catch(e){} }, 400); });
-  setInterval(function(){ try{ updatePlanBadges(); }catch(e){} }, 2500);
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('planEnforcementBadges', function(){ try{ updatePlanBadges(); }catch(e){} }, 4000); }
+  else { setInterval(function(){ try{ updatePlanBadges(); }catch(e){} }, 2500); }
 })();

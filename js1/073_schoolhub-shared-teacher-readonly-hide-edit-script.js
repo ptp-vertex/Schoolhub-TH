@@ -188,5 +188,6 @@
     }
     setTimeout(init,120);
   },true);
-  setInterval(init,2000);
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('teacherReadonlyHideEdit', init, 4000); }
+  else { setInterval(init,2000); }
 })();

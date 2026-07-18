@@ -8,5 +8,6 @@
   }
   removeGlobalStatsPanel();
   document.addEventListener('DOMContentLoaded', removeGlobalStatsPanel);
-  setInterval(removeGlobalStatsPanel, 800);
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('removeGlobalStatsPanel', removeGlobalStatsPanel, 3000); }
+  else { setInterval(removeGlobalStatsPanel, 800); }
 })();

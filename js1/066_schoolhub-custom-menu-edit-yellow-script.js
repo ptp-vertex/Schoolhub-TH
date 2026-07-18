@@ -68,5 +68,6 @@
     setTimeout(function(){wrap(); syncByTitle();},1000);
   });
 
-  setInterval(function(){wrap(); syncByTitle();},1200);
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('menuEditYellow', function(){wrap(); syncByTitle();}, 4000); }
+  else { setInterval(function(){wrap(); syncByTitle();},1200); }
 })();

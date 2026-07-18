@@ -185,5 +185,6 @@
     var userBtn = e.target && e.target.closest && e.target.closest('.shcm-user-nav-btn,[onclick*="openCustomMenuUser"]');
     if(userBtn) setTimeout(autosizeCurrentFrame,120);
   }, true);
-  setInterval(wrapOriginals, 1500);
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('menuSafeIconFrame', wrapOriginals, 4000); }
+  else { setInterval(wrapOriginals, 1500); }
 })();
