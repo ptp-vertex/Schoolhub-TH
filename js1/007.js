@@ -301,6 +301,7 @@
                 document.getElementById('landing-view').classList.add('hidden');
                 document.getElementById('auth-view').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
+                window.renderPublicAnnouncements?.();
                 window.goToHome();
                 return true;
             } catch(e) {
@@ -616,9 +617,7 @@
         let publicAnnouncements = [];
         let subscriptionPlans = [];
         let adminPlanRequests = [];
-        let announcementTopbarTimer = null;
         let announcementPopupTimer = null;
-        let announcementTopbarIndex = 0;
         let announcementPopupIndex = 0;
 
         let editingCourseId = null;
@@ -666,6 +665,33 @@
             return a.type === type || a.type === 'both';
         }
 
+        function announcementMatchesScope(a, scope) {
+            return !a.scope || a.scope === 'both' || a.scope === scope;
+        }
+
+        function isAnnouncementMuted(id) {
+            const raw = localStorage.getItem(`schoolhub_announcement_mute_${id}`);
+            if (!raw) return false;
+            const until = Number(raw);
+            if (!Number.isFinite(until) || Date.now() > until) {
+                localStorage.removeItem(`schoolhub_announcement_mute_${id}`);
+                return false;
+            }
+            return true;
+        }
+
+        function muteAnnouncementFor(id, days = 10) {
+            localStorage.setItem(`schoolhub_announcement_mute_${id}`, String(Date.now() + days * 24 * 60 * 60 * 1000));
+        }
+
+        function isAnnouncementSessionClosed(id) {
+            return sessionStorage.getItem(`schoolhub_announcement_sessionclosed_${id}`) === 'true';
+        }
+
+        function closeAnnouncementForSession(id) {
+            sessionStorage.setItem(`schoolhub_announcement_sessionclosed_${id}`, 'true');
+        }
+
         function getRotationMs(items) {
             const first = (items || []).find(a => Number(a.rotationSeconds) > 0);
             const sec = Math.max(2, Number(first?.rotationSeconds || 6));
@@ -697,29 +723,35 @@
         }
         window.addEventListener('resize', syncLandingTopOffset);
 
-        function renderTopbarAnnouncement(items) {
-            const topbar = document.getElementById('public-announcement-topbar');
-            if (!topbar) return;
-            const visible = (items || []).filter(a => !localStorage.getItem(`schoolhub_announcement_closed_${a.id}`));
+        const topbarRenderState = {
+            'public-announcement-topbar': { timer: null, index: 0, onRender: syncLandingTopOffset },
+            'app-announcement-topbar': { timer: null, index: 0, onRender: () => {} }
+        };
+
+        function renderTopbarInto(containerId, items) {
+            const topbar = document.getElementById(containerId);
+            const state = topbarRenderState[containerId];
+            if (!topbar || !state) return;
+            const visible = (items || []).filter(a => !isAnnouncementSessionClosed(a.id) && !isAnnouncementMuted(a.id));
             if (!visible.length) {
                 topbar.classList.add('hidden');
                 topbar.innerHTML = '';
-                if (announcementTopbarTimer) clearInterval(announcementTopbarTimer);
-                announcementTopbarTimer = null;
-                syncLandingTopOffset();
+                if (state.timer) clearInterval(state.timer);
+                state.timer = null;
+                state.onRender();
                 return;
             }
-            announcementTopbarIndex = announcementTopbarIndex % visible.length;
-            const top = visible[announcementTopbarIndex];
+            state.index = state.index % visible.length;
+            const top = visible[state.index];
             topbar.classList.remove('hidden', 'sh-topbar-out');
-            topbar.innerHTML = `<div class="bg-indigo-600 text-white px-4 py-3 shadow-lg"><div class="max-w-7xl mx-auto flex items-start gap-3 sh-announcement-clickable" onclick="openAnnouncementDetail('${top.id}')"><i class="fas fa-bullhorn mt-1"></i>${top.imageUrl ? `<img src="${escapeHTML(top.imageUrl)}" class="w-12 h-12 object-cover rounded-xl border border-white/20 hidden sm:block" onerror="this.classList.add('hidden')">` : ''}<div class="flex-1 min-w-0"><b>ประกาศ</b><span class="mx-2 hidden sm:inline">•</span><span class="font-bold break-words">${escapeHTML(top.title)}</span><span class="mx-2 hidden sm:inline">•</span><span class="block sm:inline break-words">${escapeHTML(top.message)}</span></div><button onclick="event.stopPropagation(); dismissTopAnnouncement('${top.id}')" class="sh-announcement-bar-close rounded-full bg-white/15 hover:bg-white/25 shrink-0 flex items-center justify-center"><i class="fas fa-times"></i></button></div></div>`;
-            syncLandingTopOffset();
-            if (announcementTopbarTimer) clearInterval(announcementTopbarTimer);
-            announcementTopbarTimer = null;
+            topbar.innerHTML = `<div class="bg-indigo-600 text-white px-4 py-3 shadow-lg"><div class="max-w-7xl mx-auto flex items-start gap-3 sh-announcement-clickable" onclick="openAnnouncementDetail('${top.id}')"><i class="fas fa-bullhorn mt-1"></i>${top.imageUrl ? `<img src="${escapeHTML(top.imageUrl)}" class="w-12 h-12 object-cover rounded-xl border border-white/20 hidden sm:block" onerror="this.classList.add('hidden')">` : ''}<div class="flex-1 min-w-0"><b>ประกาศ</b><span class="mx-2 hidden sm:inline">•</span><span class="font-bold break-words">${escapeHTML(top.title)}</span><span class="mx-2 hidden sm:inline">•</span><span class="block sm:inline break-words">${escapeHTML(top.message)}</span></div><button onclick="event.stopPropagation(); dismissTopAnnouncement('${top.id}', '${containerId}')" class="sh-announcement-bar-close rounded-full bg-white/15 hover:bg-white/25 shrink-0 flex items-center justify-center"><i class="fas fa-times"></i></button></div></div>`;
+            state.onRender();
+            if (state.timer) clearInterval(state.timer);
+            state.timer = null;
             if (visible.length >= 2) {
-                announcementTopbarTimer = setInterval(() => {
-                    announcementTopbarIndex = (announcementTopbarIndex + 1) % visible.length;
-                    renderTopbarAnnouncement(visible);
+                state.timer = setInterval(() => {
+                    state.index = (state.index + 1) % visible.length;
+                    renderTopbarInto(containerId, visible);
                 }, getRotationMs(visible));
             }
         }
@@ -728,8 +760,9 @@
             const active = getActiveAnnouncements();
             const list = document.getElementById('landing-announcement-list');
             const empty = document.getElementById('landing-announcement-empty');
+            const landingActive = active.filter(a => announcementMatchesScope(a, 'landing'));
             if (list) {
-                list.innerHTML = active.map(a => `
+                list.innerHTML = landingActive.map(a => `
                     <div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition overflow-hidden sh-announcement-clickable" onclick="openAnnouncementDetail('${a.id}')">
                         ${imageMarkup(a.imageUrl, 'w-full h-36 object-cover rounded-2xl mb-4 border border-slate-100')}
                         <div class="flex items-start gap-3">
@@ -740,24 +773,22 @@
                             </div>
                         </div>
                     </div>`).join('');
-                if (empty) empty.classList.toggle('hidden', active.length > 0);
+                if (empty) empty.classList.toggle('hidden', landingActive.length > 0);
             }
 
-            renderTopbarAnnouncement(active.filter(a => announcementMatchesType(a, 'topbar')));
+            renderTopbarInto('public-announcement-topbar', landingActive.filter(a => announcementMatchesType(a, 'topbar')));
+            renderTopbarInto('app-announcement-topbar', active.filter(a => announcementMatchesScope(a, 'app') && announcementMatchesType(a, 'topbar')));
             showFirstVisitPopupAnnouncement();
         };
 
-        window.dismissTopAnnouncement = (id) => {
-            const topbar = document.getElementById('public-announcement-topbar');
+        window.dismissTopAnnouncement = (id, containerId = 'public-announcement-topbar') => {
+            const topbar = document.getElementById(containerId);
+            const doClose = () => { closeAnnouncementForSession(id); renderPublicAnnouncements(); };
             if (topbar && !topbar.classList.contains('hidden')) {
                 topbar.classList.add('sh-topbar-out');
-                setTimeout(() => {
-                    localStorage.setItem(`schoolhub_announcement_closed_${id}`, 'true');
-                    renderPublicAnnouncements();
-                }, 260);
+                setTimeout(doClose, 260);
             } else {
-                localStorage.setItem(`schoolhub_announcement_closed_${id}`, 'true');
-                renderPublicAnnouncements();
+                doClose();
             }
         };
 
@@ -771,6 +802,8 @@
                 if (popup.imageUrl) { img.src = popup.imageUrl; img.classList.remove('hidden'); }
                 else { img.src = ''; img.classList.add('hidden'); }
             }
+            const mute = document.getElementById('public-popup-mute-10d');
+            if (mute) mute.checked = false;
             modal.dataset.announcementId = popup.id;
             modal.classList.remove('hidden');
         }
@@ -781,12 +814,13 @@
         };
 
         function renderPopupAnnouncement(popup) {
-            if (currentUser || !popup) return;
+            if (!popup) return;
             showAnnouncementDetailModal(popup);
         }
 
         function showFirstVisitPopupAnnouncement() {
-            const popups = getActiveAnnouncements().filter(a => announcementMatchesType(a, 'popup') && !localStorage.getItem(`schoolhub_announcement_seen_${a.id}`));
+            const scope = currentUser ? 'app' : 'landing';
+            const popups = getActiveAnnouncements().filter(a => announcementMatchesScope(a, scope) && announcementMatchesType(a, 'popup') && !isAnnouncementSessionClosed(a.id) && !isAnnouncementMuted(a.id));
             if (!popups.length) return;
             if (announcementPopupTimer) clearInterval(announcementPopupTimer);
             announcementPopupTimer = null;
@@ -804,7 +838,12 @@
             const modal = document.getElementById('public-announcement-popup');
             if (announcementPopupTimer) clearInterval(announcementPopupTimer);
             announcementPopupTimer = null;
-            if (modal.dataset.announcementId) localStorage.setItem(`schoolhub_announcement_seen_${modal.dataset.announcementId}`, 'true');
+            const id = modal.dataset.announcementId;
+            const mute = document.getElementById('public-popup-mute-10d');
+            if (id) {
+                if (mute && mute.checked) muteAnnouncementFor(id, 10);
+                else closeAnnouncementForSession(id);
+            }
             modal.classList.add('hidden');
         };
 
@@ -842,6 +881,7 @@
                     <td class="font-bold text-slate-700">${escapeHTML(a.title)}${a.imageUrl ? '<div class="text-xs text-indigo-500 mt-1"><i class="fas fa-image"></i> มีรูปภาพ</div>' : ''}</td>
                     <td class="text-sm text-slate-500 max-w-md whitespace-pre-line">${escapeHTML(a.message)}</td>
                     <td class="text-center"><span class="px-3 py-1 rounded-full text-xs font-bold ${a.type === 'popup' ? 'bg-amber-100 text-amber-700' : (a.type === 'both' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-700')}">${a.type === 'popup' ? 'ป็อปอัพ' : (a.type === 'both' ? 'ทั้งสองแบบ' : 'แถบด้านบน')}</span></td>
+                    <td class="text-center"><span class="px-3 py-1 rounded-full text-xs font-bold ${a.scope === 'app' ? 'bg-sky-100 text-sky-700' : (a.scope === 'landing' ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-600')}">${a.scope === 'app' ? 'หลังเข้าสู่ระบบ' : (a.scope === 'landing' ? 'หน้าหลัก' : 'ทั้งสองหน้า')}</span></td>
                     <td class="text-center text-xs text-slate-500 whitespace-nowrap"><div>เริ่ม: ${formatAdminDateTime(a.startAt)}</div><div>หยุด: ${formatAdminDateTime(a.endAt)}</div><div>สลับ: ${Number(a.rotationSeconds || 6)} วิ</div></td>
                     <td class="text-center"><span class="px-3 py-1 rounded-full text-xs font-bold ${a.active !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${a.active !== false ? 'เปิด' : 'ปิด'}</span></td>
                     <td class="text-right whitespace-nowrap">
@@ -857,7 +897,8 @@
             document.getElementById('announcement-title').value = '';
             document.getElementById('announcement-message').value = '';
             document.getElementById('announcement-image').value = '';
-            document.getElementById('announcement-type').value = 'topbar';
+            document.getElementById('announcement-type').value = 'both';
+            document.getElementById('announcement-scope').value = 'both';
             document.getElementById('announcement-start').value = '';
             document.getElementById('announcement-end').value = '';
             document.getElementById('announcement-rotation').value = '6';
@@ -865,7 +906,7 @@
             const fileInput = document.getElementById('announcement-image-file'); if (fileInput) fileInput.value = '';
             const status = document.getElementById('announcement-image-upload-status'); if (status) status.textContent = '';
             document.getElementById('announcement-image-preview')?.classList.add('hidden');
-            window.setAnnouncementImageMode('link');
+            window.setAnnouncementImageMode('upload');
         };
 
         // FIX: สลับโหมด "ใส่ลิงก์" / "อัปโหลดรูป" สำหรับรูปภาพประกาศ
@@ -938,6 +979,7 @@
             document.getElementById('announcement-message').value = a.message || '';
             document.getElementById('announcement-image').value = a.imageUrl || '';
             document.getElementById('announcement-type').value = a.type || 'topbar';
+            document.getElementById('announcement-scope').value = a.scope || 'both';
             document.getElementById('announcement-start').value = a.startAt || '';
             document.getElementById('announcement-end').value = a.endAt || '';
             document.getElementById('announcement-rotation').value = Number(a.rotationSeconds || 6);
@@ -962,6 +1004,7 @@
                 message: document.getElementById('announcement-message').value.trim(),
                 imageUrl: document.getElementById('announcement-image').value.trim(),
                 type: document.getElementById('announcement-type').value,
+                scope: document.getElementById('announcement-scope').value,
                 startAt,
                 endAt,
                 rotationSeconds: Math.max(2, Number(document.getElementById('announcement-rotation').value || 6)),
@@ -3657,6 +3700,7 @@ async function submitPlanRequest(planId){
                     document.getElementById('landing-view').classList.add('hidden');
                     document.getElementById('auth-view').classList.add('hidden');
                     document.getElementById('main-app').classList.remove('hidden');
+                    window.renderPublicAnnouncements?.();
                     window.__schoolhubGoogleLoginWaiting = false;
                     if (typeof setGoogleLoginButtonLoading === 'function') setGoogleLoginButtonLoading(false);
 
@@ -3725,6 +3769,7 @@ async function submitPlanRequest(planId){
                 saveSchoolHubSession(currentUser, 'admin');
             } catch(e) {}
             document.getElementById('landing-view').classList.add('hidden'); document.getElementById('auth-view').classList.add('hidden'); document.getElementById('main-app').classList.remove('hidden');
+            window.renderPublicAnnouncements?.();
             document.getElementById('user-display-name').textContent = adminName; document.getElementById('user-display-email').textContent = adminEmail || adminUsername || 'Admin';
             setAdminNavigationMode(true);
             try {

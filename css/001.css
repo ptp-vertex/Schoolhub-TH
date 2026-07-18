@@ -752,6 +752,9 @@
         @keyframes sh-topbar-out { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-100%); opacity: 0; } }
         .sh-announcement-bar-close { width: 1.5rem; height: 1.5rem; font-size: .7rem; transition: background-color .2s ease, transform .2s ease; }
         .sh-announcement-bar-close:active { transform: scale(.9); }
+        #app-announcement-topbar { position: relative; z-index: 20; overflow: hidden; }
+        #app-announcement-topbar.sh-topbar-out { animation: sh-topbar-out .28s cubic-bezier(.4,0,1,1) forwards; }
+        #app-announcement-topbar:not(.hidden) { animation: sh-topbar-in .4s cubic-bezier(.16,1,.3,1); }
         .sh-announcement-clickable { cursor: pointer; transition: opacity .2s ease; }
         .sh-announcement-clickable:hover { opacity: .92; }
         @media (max-width: 768px) {
