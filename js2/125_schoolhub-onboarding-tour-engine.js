@@ -152,6 +152,56 @@
             }
         },
         {
+            id: 'overview-bonus-header-dblclick',
+            group: 'ภาพรวมคะแนน',
+            selector: { desktop: 'th.sh-bonus-col', mobile: 'th.sh-bonus-col' },
+            title: { desktop: 'หัวข้อ +โบนัส', mobile: 'หัวข้อ +โบนัส' },
+            text: {
+                desktop: 'ดับเบิลคลิกที่หัวข้อนี้เพื่อตั้งค่าการรวมคะแนนโบนัสเข้ากับคะแนนรวม',
+                mobile: 'แตะค้างหรือแตะสองครั้งที่หัวข้อนี้เพื่อตั้งค่าการรวมคะแนนโบนัสเข้ากับคะแนนรวม'
+            }
+        },
+        {
+            id: 'overview-star-header-dblclick',
+            group: 'ภาพรวมคะแนน',
+            selector: { desktop: 'th.sh-star-col', mobile: 'th.sh-star-col' },
+            title: { desktop: 'หัวข้อ ⭐ดาว', mobile: 'หัวข้อ ⭐ดาว' },
+            text: {
+                desktop: 'ดับเบิลคลิกที่หัวข้อนี้เพื่อแปลงดาวสะสมเป็นคะแนน',
+                mobile: 'แตะสองครั้งที่หัวข้อนี้เพื่อแปลงดาวสะสมเป็นคะแนน'
+            }
+        },
+        {
+            id: 'overview-attendance-summary-dblclick',
+            group: 'ภาพรวมคะแนน',
+            selector: { desktop: 'td.summary-att-col', mobile: 'td.summary-att-col' },
+            title: { desktop: 'สรุปการมาเรียน', mobile: 'สรุปการมาเรียน' },
+            text: {
+                desktop: 'ดับเบิลคลิกที่ช่องนี้เพื่อดูรายละเอียดวันที่มา/สาย/ขาด/ลา ของนักเรียนคนนั้น',
+                mobile: 'แตะสองครั้งที่ช่องนี้เพื่อดูรายละเอียดวันที่มา/สาย/ขาด/ลา ของนักเรียนคนนั้น'
+            }
+        },
+        {
+            id: 'overview-bonus-cell-click',
+            group: 'ภาพรวมคะแนน',
+            selector: { desktop: 'td.sh-bonus-col', mobile: 'td.sh-bonus-col' },
+            title: { desktop: 'โบนัสรวมของนักเรียน', mobile: 'โบนัสรวมของนักเรียน' },
+            text: {
+                desktop: 'คลิกครั้งเดียว (หรือดับเบิลคลิกก็ได้) ที่ช่องนี้เพื่อดูรายละเอียดคะแนนโบนัสของนักเรียนคนนั้น',
+                mobile: 'แตะที่ช่องนี้เพื่อดูรายละเอียดคะแนนโบนัสของนักเรียนคนนั้น'
+            }
+        },
+        {
+            id: 'overview-star-cell-click',
+            group: 'ภาพรวมคะแนน',
+            selector: { desktop: 'td.sh-star-col', mobile: 'td.sh-star-col' },
+            title: { desktop: 'ดาวรวมของนักเรียน', mobile: 'ดาวรวมของนักเรียน' },
+            text: {
+                desktop: 'คลิกครั้งเดียว (หรือดับเบิลคลิกก็ได้) ที่ช่องนี้เพื่อดูรายละเอียดดาวของนักเรียนคนนั้น',
+                mobile: 'แตะที่ช่องนี้เพื่อดูรายละเอียดดาวของนักเรียนคนนั้น'
+            }
+        },
+        {
             id: 'nav-user-plans',
             group: 'เมนูหลัก',
             selector: { desktop: '#nav-user-plans', mobile: '#mobile-nav-user-plans' },
@@ -476,6 +526,14 @@
 
     function showCurrent(pending) {
         ensureUi();
+        // FIX: บังคับย้าย overlay/spotlight/card ไปอยู่ท้ายสุดของ <body> ทุกครั้งก่อนแสดง
+        // เพราะ #settings-modal ใช้ z-index สูงสุดเท่ากัน (2147483647) เมื่อ z-index เท่ากัน
+        // ตัวที่อยู่หลังสุดใน DOM จะวาดทับบนสุด และ openModal() จะย้าย modal ไปท้าย <body>
+        // ทุกครั้งที่เปิด ถ้าเปิดหน้าตั้งค่าหลังจากที่ tour ถูกสร้างไปแล้ว (ensureUi ทำงานครั้งเดียว)
+        // modal จะกลายเป็นตัวหลังสุดแทน ทำให้บทเรียนไปซ้อนอยู่หลังป็อปอัพตั้งค่า
+        document.body.appendChild(overlayEl);
+        document.body.appendChild(spotlightEl);
+        document.body.appendChild(cardEl);
         var el = current.el;
         var r = el.getBoundingClientRect();
         var margin = 40;
