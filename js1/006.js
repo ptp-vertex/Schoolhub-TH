@@ -131,9 +131,9 @@
                 } catch (e) { console.warn('SchoolHub: cached announcement fallback failed:', e); }
             }
 
-            // ดึงประกาศตรงจาก Firestore REST API โดยไม่พึ่ง Firebase SDK/module เลย
-            // ใช้ fetch() ธรรมดา + timeout กันค้าง แล้วอัปเดต cache ให้ครั้งต่อ ๆ ไปเร็วขึ้นด้วย
-            function fetchAnnouncementsViaRestAndRender() {
+            // เก็บผลลัพธ์ล่าสุดที่ดึงมาได้ไว้ในตัวแปร เพื่อใช้ตอนถึงเวลาแสดงจริง (หน่วง 3 วิ)
+            var schoolhubLatestFetchedAnnouncementItems = null;
+            function fetchAnnouncementsViaRestInBackground() {
                 try {
                     if (typeof fetch !== 'function') return;
                     var url = 'https://firestore.googleapis.com/v1/projects/' + SH_FIRESTORE_PROJECT_ID +
@@ -147,19 +147,38 @@
                             if (!data || !data.fields || !data.fields.items) return;
                             var items = firestoreRestValueToJS(data.fields.items) || [];
                             if (!Array.isArray(items)) return;
+                            schoolhubLatestFetchedAnnouncementItems = items;
                             try { localStorage.setItem(SH_ANNOUNCEMENT_CACHE_KEY, JSON.stringify(items)); } catch (e) {}
-                            renderAnnouncementTopbarFromItems(items);
                         })
                         .catch(function (e) { if (timer) clearTimeout(timer); console.warn('SchoolHub: REST announcement fetch failed:', e); });
                 } catch (e) { console.warn('SchoolHub: REST announcement fetch setup failed:', e); }
             }
 
+            // แสดงประกาศจริงโดยใช้ข้อมูลล่าสุดที่มี ณ ตอนนั้น (REST ถ้าถึงแล้ว ไม่งั้นใช้แคชเดิม)
+            function showAnnouncementFallbackNow() {
+                var items = schoolhubLatestFetchedAnnouncementItems;
+                if (!items) {
+                    try {
+                        var raw = localStorage.getItem(SH_ANNOUNCEMENT_CACHE_KEY);
+                        items = raw ? JSON.parse(raw) : [];
+                    } catch (e) { items = []; }
+                }
+                renderAnnouncementTopbarFromItems(items);
+            }
+
             document.addEventListener('DOMContentLoaded', function () {
-                renderCachedAnnouncementTopbarFallback(); // แสดงจากแคชทันที (ถ้ามี) ไม่ต้องรอ
-                fetchAnnouncementsViaRestAndRender(); // ดึงข้อมูลสดแบบไม่พึ่ง Firebase module ขนานไปด้วย
-                setTimeout(renderCachedAnnouncementTopbarFallback, 1800);
-                setTimeout(renderCachedAnnouncementTopbarFallback, 4500);
+                fetchAnnouncementsViaRestInBackground(); // เริ่มดึงข้อมูลล่วงหน้าแบบเงียบ ๆ ให้พร้อมทันตอนถึงเวลาแสดง
             });
+
+            // ตามที่ต้องการ: ให้หน่วงเวลา 3 วินาที หลังจากหน้าเว็บโหลดเสร็จ (window 'load') ก่อนค่อยแสดงแถบประกาศ
+            function scheduleAnnouncementFallbackDisplay() {
+                setTimeout(showAnnouncementFallbackNow, 3000);
+            }
+            if (document.readyState === 'complete') {
+                scheduleAnnouncementFallbackDisplay();
+            } else {
+                window.addEventListener('load', scheduleAnnouncementFallbackDisplay);
+            }
             function simpleToggleAuth(mode){
                 var login = document.getElementById('login-form');
                 var reg = document.getElementById('register-form');
