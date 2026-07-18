@@ -27,8 +27,8 @@ body, #main-content, .table-container, .modal, .popup {
 #schoolhub-missing-score-popup,
 .shdd-portal-panel,
 .custom-menu-popup {
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     /* ใช้ will-change เฉพาะจุดที่จำเป็นเพื่อไม่ให้กิน RAM */
     will-change: transform, opacity;
 }
