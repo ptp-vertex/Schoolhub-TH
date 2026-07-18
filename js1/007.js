@@ -315,14 +315,17 @@
                 document.getElementById('landing-view').classList.add('hidden');
                 document.getElementById('auth-view').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
-                window.renderPublicAnnouncements?.();
                 window.goToHome();
                 return true;
             } catch(e) {
                 console.warn('restore local session failed:', e);
                 clearSchoolHubSession();
                 return false;
-            } finally { toggleLoader(false); }
+            } finally {
+                toggleLoader(false);
+                // แสดงป็อปอัพประกาศหลังจากคืนเซสชันเสร็จสมบูรณ์และปิด loader แล้วเท่านั้น
+                if (currentUser) window.renderPublicAnnouncements?.();
+            }
         }
 
         function readLocalJSON(key, fallback) {
@@ -633,6 +636,7 @@
         let adminPlanRequests = [];
         let announcementPopupTimer = null;
         let announcementPopupIndex = 0;
+        let loginRenderAnnouncementsPending = false;
         // เก็บ id ประกาศที่ผู้ใช้กดปิด (X) ไว้ในหน่วยความจำเท่านั้น (ไม่ persist)
         // เพื่อให้เมื่อรีเฟรชหน้าเว็บ ประกาศทั้งหมดกลับมาแสดงใหม่ทุกครั้ง
         // ไม่ว่าจะเป็นหน้าหลัก (landing) หรือหน้าที่เข้าสู่ระบบแล้ว (app)
@@ -3837,7 +3841,6 @@ async function submitPlanRequest(planId){
                     document.getElementById('landing-view').classList.add('hidden');
                     document.getElementById('auth-view').classList.add('hidden');
                     document.getElementById('main-app').classList.remove('hidden');
-                    window.renderPublicAnnouncements?.();
                     window.__schoolhubGoogleLoginWaiting = false;
                     if (typeof setGoogleLoginButtonLoading === 'function') setGoogleLoginButtonLoading(false);
 
@@ -3845,12 +3848,21 @@ async function submitPlanRequest(planId){
                     if(!planFlow) {
                         window.goToHome();
                     }
+                    loginRenderAnnouncementsPending = true;
                 } catch (error) {
                     window.__schoolhubGoogleLoginWaiting = false;
                     if (typeof setGoogleLoginButtonLoading === 'function') setGoogleLoginButtonLoading(false);
                     showCustomAlert("ผิดพลาด", error.message, true);
                 }
-                finally { toggleLoader(false); }
+                finally {
+                    toggleLoader(false);
+                    // แสดงป็อปอัพประกาศ "หลัง" ที่เข้าสู่ระบบเสร็จสมบูรณ์และปิด loader แล้วเท่านั้น
+                    // (ย้ายมาจากตอนกลาง flow ด้านบน เพื่อไม่ให้ป็อปอัพขึ้นทับตอนกำลังโหลด/สลับหน้า)
+                    if (loginRenderAnnouncementsPending) {
+                        loginRenderAnnouncementsPending = false;
+                        window.renderPublicAnnouncements?.();
+                    }
+                }
             } else {
                 currentUser = null; isAdmin = false;
                 document.getElementById('auth-view').classList.add('hidden');
@@ -3906,7 +3918,6 @@ async function submitPlanRequest(planId){
                 saveSchoolHubSession(currentUser, 'admin');
             } catch(e) {}
             document.getElementById('landing-view').classList.add('hidden'); document.getElementById('auth-view').classList.add('hidden'); document.getElementById('main-app').classList.remove('hidden');
-            window.renderPublicAnnouncements?.();
             document.getElementById('user-display-name').textContent = adminName; document.getElementById('user-display-email').textContent = adminEmail || adminUsername || 'Admin';
             setAdminNavigationMode(true);
             try {
@@ -3914,11 +3925,13 @@ async function submitPlanRequest(planId){
                 await loadStateFromDB();
                 window.switchView('admin-permissions');
                 toggleLoader(false);
+                window.renderPublicAnnouncements?.();
                 Promise.allSettled([loadPublicPlans(), loadPublicAnnouncements()]).then(() => { if (isAdmin) { renderAdminPlans(); renderAdminAnnouncements(); } });
             } catch (error) {
                 console.warn('enterAdminMode failed:', error);
                 toggleLoader(false);
                 try { window.switchView('admin-permissions'); } catch(e) {}
+                window.renderPublicAnnouncements?.();
                 showCustomAlert('โหลดแอดมินไม่ครบ', getFirebaseErrorText(error), true);
             }
         }
