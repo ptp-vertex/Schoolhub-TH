@@ -170,6 +170,20 @@
             } catch(e) { return null; }
         }
 
+        // ตรวจสอบแบบ sync ว่ามีเซสชันที่กำลังจะ auto-login อยู่หรือไม่
+        // (ใช้ logic เดียวกับใน onAuthStateChanged ด้านล่าง เพื่อกันไม่ให้
+        // ป็อปอัพประกาศขึ้นที่หน้า landing ก่อนแล้วเซสชันค่อยพาเข้าหน้า app ทีหลัง)
+        function hasPendingSchoolHubSession() {
+            try {
+                const logoutIntentAt = Number(localStorage.getItem('schoolhub_logout_intent') || 0);
+                const isManualLogout = logoutIntentAt && (Date.now() - logoutIntentAt < 10 * 60 * 1000);
+                if (isManualLogout) return false;
+                if (localStorage.getItem('schoolhub_admin_bypass') === 'true') return true;
+                const savedSession = readSchoolHubSession();
+                return !!(savedSession && (savedSession.role === 'admin' || savedSession.role === 'user'));
+            } catch(e) { return false; }
+        }
+
         function clearSchoolHubSession() {
             try {
                 localStorage.removeItem(SCHOOLHUB_SESSION_KEY);
@@ -877,6 +891,10 @@
         }
 
         function showFirstVisitPopupAnnouncement() {
+            // ถ้ายังไม่มี currentUser (เช่น หน้ายังไม่โหลด Auth เสร็จ) แต่มีเซสชันเดิม
+            // ที่กำลังจะ auto-login อยู่ ให้รอไปก่อน ไม่ต้องเปิดป็อปอัพที่หน้า landing
+            // เดี๋ยวจะโดนเรียกซ้ำอีกครั้งหลัง login เข้าหน้า app แล้วค่อยแสดงตามปกติ
+            if (!currentUser && hasPendingSchoolHubSession()) return;
             const scope = currentUser ? 'app' : 'landing';
             const popups = getActiveAnnouncements().filter(a => announcementMatchesScope(a, scope) && announcementMatchesType(a, 'popup') && !isAnnouncementSessionClosed(a.id) && !isAnnouncementMuted(a.id));
             if (!popups.length) return;
