@@ -4708,7 +4708,7 @@ async function submitPlanRequest(planId){
                 goBtn.className = 'w-full mb-3 bg-primary hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-indigo-200';
                 goBtn.innerHTML = '<i class="fas fa-pen mr-2"></i>ไปหน้ากรอกคะแนนสัปดาห์นี้';
                 goBtn.addEventListener('click', (ev) => {
-                    window.jumpToScoreEntry(courseId, plan.week, ev);
+                    window.jumpToScoreEntry(courseId, plan.week, ev, plan.title);
                     window.closeCustomAlert();
                 });
                 extraActions.appendChild(goBtn);
@@ -4717,8 +4717,19 @@ async function submitPlanRequest(planId){
         // กระโดดไปหน้ากรอกคะแนนของสัปดาห์ที่เลือก โดยเลือกสัปดาห์นั้น (และชื่องานถ้ามีในแผน) ให้อัตโนมัติ
         // ใช้การ "รอจนกว่าจะพร้อมจริง" (poll ทุก 50ms) แทนการรอเวลาคงที่ เพราะสคริปต์อื่นๆ
         // ที่ครอบ switchCourseTab ไว้หลายชั้นใช้เวลา render ไม่เท่ากันในแต่ละครั้ง
-        window.jumpToScoreEntry = (courseId, week, ev) => {
+        window.jumpToScoreEntry = (courseId, week, ev, title) => {
             if (ev && ev.stopPropagation) ev.stopPropagation();
+
+            function selectMatchingTitle() {
+                if (!title) return;
+                const sel = document.getElementById('score-title-select');
+                if (!sel || sel.classList.contains('hidden')) return; // ไม่มีตัวเลือกงานตามแผน (เช่นเป็นช่องกรอกเอง) ไม่ต้องทำอะไรเพิ่ม
+                const hasMatch = Array.prototype.some.call(sel.options || [], o => o.value === String(title));
+                if (hasMatch) {
+                    sel.value = String(title);
+                    if (typeof window.handleScoreTitleSelection === 'function') window.handleScoreTitleSelection();
+                }
+            }
 
             function waitForScoreWeek(attempt) {
                 attempt = attempt || 0;
@@ -4731,6 +4742,7 @@ async function submitPlanRequest(planId){
                     scoreWeek.value = String(week);
                     if (typeof window.handleScoreWeekChange === 'function') window.handleScoreWeekChange();
                     try { scoreWeek.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+                    selectMatchingTitle();
                     if (tab && typeof tab.scrollIntoView === 'function') {
                         tab.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
@@ -4741,6 +4753,7 @@ async function submitPlanRequest(planId){
                     if (scoreWeek) {
                         scoreWeek.value = String(week);
                         if (typeof window.handleScoreWeekChange === 'function') window.handleScoreWeekChange();
+                        selectMatchingTitle();
                     }
                     if (tab && typeof tab.scrollIntoView === 'function') {
                         tab.scrollIntoView({ behavior: 'smooth', block: 'start' });
