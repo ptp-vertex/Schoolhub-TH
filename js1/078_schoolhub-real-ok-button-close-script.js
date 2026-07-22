@@ -26,6 +26,7 @@
     if(!modal) return;
     var btns = modal.querySelectorAll('button');
     btns.forEach(function(btn){
+      if(btn.closest('#custom-alert-extra-actions')) return; // ไม่แตะปุ่มเสริม เช่น "ไปหน้ากรอกคะแนนสัปดาห์นี้"
       btn.disabled = false;
       btn.removeAttribute('disabled');
       btn.removeAttribute('aria-disabled');
@@ -78,6 +79,9 @@
   document.addEventListener('click', function(e){
     var btn = e.target && e.target.closest ? e.target.closest('#custom-alert button') : null;
     if(!btn) return;
+    // ปุ่มเสริม (เช่น "ไปหน้ากรอกคะแนนสัปดาห์นี้") อยู่ใน #custom-alert-extra-actions
+    // ต้องปล่อยให้ทำงานตาม onclick/handler ของมันเอง ไม่ใช่แค่ปิดป็อปอัพเฉยๆ
+    if(btn.closest('#custom-alert-extra-actions')) return;
     e.preventDefault();
     e.stopPropagation();
     if(e.stopImmediatePropagation) e.stopImmediatePropagation();
