@@ -2663,6 +2663,11 @@ async function submitPlanRequest(planId){
             document.getElementById('custom-alert-icon').innerHTML = isError ? '<i class="fas fa-times-circle text-rose-500 drop-shadow-md"></i>' : '<i class="fas fa-check-circle text-emerald-500 drop-shadow-md"></i>';
             const existingExtraActions = document.getElementById('custom-alert-extra-actions');
             if (existingExtraActions) existingExtraActions.remove();
+            const okBtnReset = document.getElementById('custom-alert-ok-btn');
+            if (okBtnReset) {
+                okBtnReset.textContent = 'ตกลง';
+                okBtnReset.className = 'w-full bg-primary hover:bg-indigo-700 text-white font-medium py-3.5 rounded-2xl transition shadow-lg shadow-indigo-200';
+            }
             document.body.appendChild(modal); modal.style.zIndex = '999999'; document.body.appendChild(modal); modal.style.zIndex = '999999'; modal.classList.remove('hidden');
             setTimeout(() => { box.classList.remove('scale-95', 'opacity-0'); box.classList.add('scale-100', 'opacity-100'); }, 10);
         }
@@ -4694,6 +4699,11 @@ async function submitPlanRequest(planId){
             // สคริปต์อื่นที่ครอบ switchCourseTab ยังทำงานไม่เสร็จตอนไปหาช่องกรอกสัปดาห์
             const box = document.getElementById('custom-alert-box');
             if (box) {
+                const okBtn = document.getElementById('custom-alert-ok-btn') || box.querySelector('button');
+                if (okBtn) {
+                    okBtn.textContent = 'ปิด';
+                    okBtn.className = 'w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-medium py-3.5 rounded-2xl transition';
+                }
                 let extraActions = document.getElementById('custom-alert-extra-actions');
                 if (!extraActions) {
                     extraActions = document.createElement('div');
