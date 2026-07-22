@@ -2654,38 +2654,15 @@ async function submitPlanRequest(planId){
         };
         window.initStaticDropdowns();
 
-        // หา/สร้างปุ่ม "ตกลง" ของป็อปอัพ custom-alert แบบทนทาน ไม่พึ่งว่า index.html ต้องมี id นี้อยู่แล้ว
-        function shGetCustomAlertOkBtn(box) {
-            let okBtn = document.getElementById('custom-alert-ok-btn');
-            if (okBtn) return okBtn;
-            okBtn = box ? box.querySelector('button') : null;
-            if (okBtn) okBtn.id = 'custom-alert-ok-btn';
-            return okBtn;
-        }
-        // หา/สร้างช่องใส่ปุ่มเสริม (เช่นปุ่มไปหน้ากรอกคะแนน) ในป็อปอัพ custom-alert แบบทนทาน
-        function shGetCustomAlertExtraActions(box, okBtn) {
-            let extraActions = document.getElementById('custom-alert-extra-actions');
-            if (extraActions) return extraActions;
-            extraActions = document.createElement('div');
-            extraActions.id = 'custom-alert-extra-actions';
-            if (box) {
-                if (okBtn && okBtn.parentNode === box) box.insertBefore(extraActions, okBtn);
-                else box.appendChild(extraActions);
-            }
-            return extraActions;
-        }
         window.showCustomAlert = (title, message, isError = false) => {
             const modal = document.getElementById('custom-alert');
             const box = document.getElementById('custom-alert-box');
             document.getElementById('custom-alert-title').textContent = title;
             document.getElementById('custom-alert-title').className = `text-2xl font-bold mb-2 ${isError ? 'text-rose-600' : 'text-emerald-600'}`;
             document.getElementById('custom-alert-message').textContent = message;
-            document.getElementById('custom-alert-message').className = 'text-slate-500 mb-8 font-medium whitespace-pre-line';
             document.getElementById('custom-alert-icon').innerHTML = isError ? '<i class="fas fa-times-circle text-rose-500 drop-shadow-md"></i>' : '<i class="fas fa-check-circle text-emerald-500 drop-shadow-md"></i>';
-            const okBtn = shGetCustomAlertOkBtn(box);
-            const extraActions = shGetCustomAlertExtraActions(box, okBtn);
-            if (extraActions) extraActions.innerHTML = '';
-            if (okBtn) { okBtn.className = 'w-full bg-primary hover:bg-indigo-700 text-white font-medium py-3.5 rounded-2xl transition shadow-lg shadow-indigo-200'; okBtn.textContent = 'ตกลง'; }
+            const existingExtraActions = document.getElementById('custom-alert-extra-actions');
+            if (existingExtraActions) existingExtraActions.remove();
             document.body.appendChild(modal); modal.style.zIndex = '999999'; document.body.appendChild(modal); modal.style.zIndex = '999999'; modal.classList.remove('hidden');
             setTimeout(() => { box.classList.remove('scale-95', 'opacity-0'); box.classList.add('scale-100', 'opacity-100'); }, 10);
         }
@@ -4710,36 +4687,32 @@ async function submitPlanRequest(planId){
             if(!plan) return;
             const isChecklist = Number(plan.maxScore) === 0;
             const scoreText = isChecklist ? 'เช็คงาน' : `${plan.maxScore} คะแนน`;
-
-            const modal = document.getElementById('custom-alert');
+            showCustomAlert(`สัปดาห์ที่ ${plan.week}`, `ชื่องาน: ${plan.title}\nคะแนนเต็ม: ${scoreText}`);
+            // เพิ่มปุ่ม "ไปหน้ากรอกคะแนนสัปดาห์นี้" เข้าไปในป็อปอัพที่เพิ่งเปิด
+            // เรียก jumpToScoreEntry ตรงๆ แบบเดียวกับปุ่มดินสอเล็กบนหัวตาราง (ที่ทำงานได้ถูกต้อง)
+            // แทนที่จะปิดป็อปอัพก่อนแล้วค่อยเรียก เพราะการปิดป็อปอัพก่อนทำให้บางครั้ง
+            // สคริปต์อื่นที่ครอบ switchCourseTab ยังทำงานไม่เสร็จตอนไปหาช่องกรอกสัปดาห์
             const box = document.getElementById('custom-alert-box');
-            const titleEl = document.getElementById('custom-alert-title');
-            const msgEl = document.getElementById('custom-alert-message');
-            const iconEl = document.getElementById('custom-alert-icon');
-            const okBtn = shGetCustomAlertOkBtn(box);
-            const extraActions = shGetCustomAlertExtraActions(box, okBtn);
-
-            titleEl.textContent = `สัปดาห์ที่ ${plan.week}`;
-            titleEl.className = 'text-2xl font-bold mb-2 text-emerald-600';
-            msgEl.className = 'text-slate-500 mb-4 font-medium whitespace-pre-line';
-            msgEl.innerHTML = `ชื่องาน: ${escapeHTML(plan.title || '')}<br>คะแนนเต็ม: ${escapeHTML(scoreText)}`;
-            iconEl.innerHTML = '<i class="fas fa-check-circle text-emerald-500 drop-shadow-md"></i>';
-            if (extraActions) {
+            if (box) {
+                let extraActions = document.getElementById('custom-alert-extra-actions');
+                if (!extraActions) {
+                    extraActions = document.createElement('div');
+                    extraActions.id = 'custom-alert-extra-actions';
+                    const okBtn = box.querySelector('button');
+                    if (okBtn && okBtn.parentNode === box) box.insertBefore(extraActions, okBtn);
+                    else box.appendChild(extraActions);
+                }
                 extraActions.innerHTML = '';
                 const goBtn = document.createElement('button');
                 goBtn.type = 'button';
                 goBtn.className = 'w-full mb-3 bg-primary hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-indigo-200';
                 goBtn.innerHTML = '<i class="fas fa-pen mr-2"></i>ไปหน้ากรอกคะแนนสัปดาห์นี้';
-                goBtn.addEventListener('click', () => {
+                goBtn.addEventListener('click', (ev) => {
+                    window.jumpToScoreEntry(courseId, plan.week, ev);
                     window.closeCustomAlert();
-                    window.jumpToScoreEntry(courseId, plan.week);
                 });
                 extraActions.appendChild(goBtn);
             }
-            if (okBtn) { okBtn.className = 'w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-medium py-3.5 rounded-2xl transition'; okBtn.textContent = 'ปิด'; }
-
-            document.body.appendChild(modal); modal.style.zIndex = '999999'; modal.classList.remove('hidden');
-            setTimeout(() => { box.classList.remove('scale-95', 'opacity-0'); box.classList.add('scale-100', 'opacity-100'); }, 10);
         };
         // กระโดดไปหน้ากรอกคะแนนของสัปดาห์ที่เลือก โดยเลือกสัปดาห์นั้นให้อัตโนมัติ
         window.jumpToScoreEntry = (courseId, week, ev) => {
@@ -4783,7 +4756,7 @@ async function submitPlanRequest(planId){
             plans.forEach(p => {
                 const isChecklist = Number(p.maxScore) === 0;
                 const subtitle = isChecklist ? 'เช็คงาน' : `เต็ม ${p.maxScore}`;
-                thead += `<th class="text-center bg-indigo-50 text-indigo-700 summary-score-col" title="คลิกเพื่อดูรายละเอียด: สัปดาห์ ${p.week} | ${p.title} | ${subtitle}"><button type="button" onclick="showPlanDetail('${cid}', '${p.id}')" class="week-detail-btn inline-flex items-center justify-center bg-white border border-indigo-200 text-primary font-bold hover:bg-primary hover:text-white transition shadow-sm">${p.week}</button></th>`;
+                thead += `<th class="text-center bg-indigo-50 text-indigo-700 summary-score-col" title="คลิกเพื่อดูรายละเอียด: สัปดาห์ ${p.week} | ${p.title} | ${subtitle}"><div class="inline-flex items-center gap-0.5"><button type="button" onclick="showPlanDetail('${cid}', '${p.id}')" class="week-detail-btn inline-flex items-center justify-center bg-white border border-indigo-200 text-primary font-bold hover:bg-primary hover:text-white transition shadow-sm">${p.week}</button><button type="button" onclick="jumpToScoreEntry('${cid}', '${p.week}', event)" title="ไปหน้ากรอกคะแนนสัปดาห์นี้" class="week-goto-score-btn inline-flex items-center justify-center bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-500 hover:text-white transition shadow-sm" style="width:18px;height:18px;border-radius:6px;font-size:9px;line-height:1"><i class="fas fa-pen"></i></button></div></th>`;
                 if (!isChecklist) totalMax = window.addScoreToTotal(totalMax, p.maxScore, 2);
             });
             thead += `<th class="text-center bg-slate-800 text-white font-bold summary-total-col">รวม<br><span class="text-[9px] text-slate-300">${window.formatScoreDisplay(totalMax, 2)}</span></th>`;
