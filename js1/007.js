@@ -2654,6 +2654,26 @@ async function submitPlanRequest(planId){
         };
         window.initStaticDropdowns();
 
+        // หา/สร้างปุ่ม "ตกลง" ของป็อปอัพ custom-alert แบบทนทาน ไม่พึ่งว่า index.html ต้องมี id นี้อยู่แล้ว
+        function shGetCustomAlertOkBtn(box) {
+            let okBtn = document.getElementById('custom-alert-ok-btn');
+            if (okBtn) return okBtn;
+            okBtn = box ? box.querySelector('button') : null;
+            if (okBtn) okBtn.id = 'custom-alert-ok-btn';
+            return okBtn;
+        }
+        // หา/สร้างช่องใส่ปุ่มเสริม (เช่นปุ่มไปหน้ากรอกคะแนน) ในป็อปอัพ custom-alert แบบทนทาน
+        function shGetCustomAlertExtraActions(box, okBtn) {
+            let extraActions = document.getElementById('custom-alert-extra-actions');
+            if (extraActions) return extraActions;
+            extraActions = document.createElement('div');
+            extraActions.id = 'custom-alert-extra-actions';
+            if (box) {
+                if (okBtn && okBtn.parentNode === box) box.insertBefore(extraActions, okBtn);
+                else box.appendChild(extraActions);
+            }
+            return extraActions;
+        }
         window.showCustomAlert = (title, message, isError = false) => {
             const modal = document.getElementById('custom-alert');
             const box = document.getElementById('custom-alert-box');
@@ -2662,9 +2682,9 @@ async function submitPlanRequest(planId){
             document.getElementById('custom-alert-message').textContent = message;
             document.getElementById('custom-alert-message').className = 'text-slate-500 mb-8 font-medium whitespace-pre-line';
             document.getElementById('custom-alert-icon').innerHTML = isError ? '<i class="fas fa-times-circle text-rose-500 drop-shadow-md"></i>' : '<i class="fas fa-check-circle text-emerald-500 drop-shadow-md"></i>';
-            const extraActions = document.getElementById('custom-alert-extra-actions');
+            const okBtn = shGetCustomAlertOkBtn(box);
+            const extraActions = shGetCustomAlertExtraActions(box, okBtn);
             if (extraActions) extraActions.innerHTML = '';
-            const okBtn = document.getElementById('custom-alert-ok-btn');
             if (okBtn) { okBtn.className = 'w-full bg-primary hover:bg-indigo-700 text-white font-medium py-3.5 rounded-2xl transition shadow-lg shadow-indigo-200'; okBtn.textContent = 'ตกลง'; }
             document.body.appendChild(modal); modal.style.zIndex = '999999'; document.body.appendChild(modal); modal.style.zIndex = '999999'; modal.classList.remove('hidden');
             setTimeout(() => { box.classList.remove('scale-95', 'opacity-0'); box.classList.add('scale-100', 'opacity-100'); }, 10);
@@ -4696,8 +4716,8 @@ async function submitPlanRequest(planId){
             const titleEl = document.getElementById('custom-alert-title');
             const msgEl = document.getElementById('custom-alert-message');
             const iconEl = document.getElementById('custom-alert-icon');
-            const okBtn = document.getElementById('custom-alert-ok-btn');
-            const extraActions = document.getElementById('custom-alert-extra-actions');
+            const okBtn = shGetCustomAlertOkBtn(box);
+            const extraActions = shGetCustomAlertExtraActions(box, okBtn);
 
             titleEl.textContent = `สัปดาห์ที่ ${plan.week}`;
             titleEl.className = 'text-2xl font-bold mb-2 text-emerald-600';
