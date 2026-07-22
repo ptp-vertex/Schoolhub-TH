@@ -335,6 +335,12 @@
   window.calculateSpecialGradeByAttendance = calculateSpecialGradeByAttendance;
 
   function computeTotalScoreForStudent(courseId, studentId){
+    if(typeof window.shComputeScaledCourseTotal === 'function'){
+      try{
+        var scaled = window.shComputeScaledCourseTotal(courseId, studentId);
+        if(scaled) return {total:scaled.total, totalMax:scaled.totalMax};
+      }catch(scaledErr){ console.warn('[GRADE CALC] score-scale rules failed, falling back to plain total', scaledErr); }
+    }
     var plans = ((state.coursePlans && state.coursePlans[courseId]) || []).sort(function(a,b){return num(a.week,0)-num(b.week,0);});
     var courseScores = (state.scores || []).filter(function(s){return String(s.courseId) === String(courseId);});
     var total = 0, totalMax = 0;
@@ -759,6 +765,14 @@
     var courseIdForSave = String(course.id || cid);
     course.gradeCriteria = (typeof structuredClone === 'function') ? structuredClone(criteria) : clone(criteria);
     state.courseGrades[courseIdForSave] = (typeof structuredClone === 'function') ? structuredClone(course.gradeCriteria) : clone(course.gradeCriteria);
+
+    // ระบบหารคะแนน (แปลงคะแนนเต็มของงาน/สัปดาห์ที่เลือกให้เหลือคะแนนที่ต้องการ ก่อนรวมเป็นคะแนนรวม)
+    // เก็บไว้ในตัวรายวิชาเดียวกับ gradeCriteria เพื่อให้บันทึกพร้อมกันตอนกด "บันทึก" ในหน้าตั้งค่าเกรด
+    try{
+      if(typeof window.shGetPendingScoreScaleRulesForSave === 'function'){
+        course.scoreScaleRules = window.shGetPendingScoreScaleRulesForSave();
+      }
+    }catch(scoreScaleSaveErr){ console.warn('[GRADE SAVE] score-scale rules save failed', scoreScaleSaveErr); }
     if(window.currentCourse && String(window.currentCourse.id) === String(courseIdForSave)) {
       window.currentCourse.gradeCriteria = (typeof structuredClone === 'function') ? structuredClone(course.gradeCriteria) : clone(course.gradeCriteria);
     }

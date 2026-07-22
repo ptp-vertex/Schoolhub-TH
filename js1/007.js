@@ -2256,6 +2256,12 @@ async function submitPlanRequest(planId){
             });
             let totalScore=0,totalMax=0;
             const scoreRows=plans.map(p=>{const task=courseScores.find(ts=>Number(ts.week)===Number(p.week)&&String(ts.title)===String(p.title));const raw=task&&task.records?task.records[student.id]:undefined;const checklist=Number(p.maxScore)===0;if(!checklist)totalMax=window.addScoreToTotal(totalMax,p.maxScore,2);let display='-';if(checklist)display=raw===1?'ส่งแล้ว':(raw===0?'ยังไม่ส่ง':'-');else{if(raw!==undefined&&raw!==''&&window.scoreNumberOrNull(raw)!==null){totalScore=window.addScoreToTotal(totalScore,raw,2);display=`${window.formatScoreDisplay(raw,2)}/${window.formatScoreDisplay(p.maxScore,2)}`;}else if(task)display='ขาดส่ง';}return{week:p.week,title:p.title,maxScore:p.maxScore,checklist,display};});
+            // ระบบหารคะแนน: ถ้าวิชานี้มีการตั้งกฎหารคะแนนไว้ ให้ใช้คะแนนรวม/คะแนนเต็มที่ปรับเฉลี่ยแล้วแทน
+            // (ไม่กระทบ scoreRows ที่แสดงคะแนนดิบของแต่ละงานทีละชิ้นด้านบน)
+            if(typeof window.shComputeScaledCourseTotal==='function'){
+                const __shScaled=window.shComputeScaledCourseTotal(cid, student.id);
+                if(__shScaled){ totalScore=__shScaled.total; totalMax=__shScaled.totalMax; }
+            }
 
             // Bonus scores (per week, same source as the teacher overview table)
             const bonusByCid=(state.bonusScores&&state.bonusScores[cid])||{};
@@ -4816,6 +4822,10 @@ async function submitPlanRequest(planId){
                 thead += `<th class="text-center bg-indigo-50 text-indigo-700 summary-score-col" title="คลิกเพื่อดูรายละเอียด: สัปดาห์ ${p.week} | ${p.title} | ${subtitle}"><button type="button" onclick="showPlanDetail('${cid}', '${p.id}')" class="week-detail-btn inline-flex items-center justify-center bg-white border border-indigo-200 text-primary font-bold hover:bg-primary hover:text-white transition shadow-sm">${p.week}</button></th>`;
                 if (!isChecklist) totalMax = window.addScoreToTotal(totalMax, p.maxScore, 2);
             });
+            if (typeof window.shComputeScaledCourseTotal === 'function') {
+                const __shScaledHead = window.shComputeScaledCourseTotal(cid, null);
+                if (__shScaledHead) totalMax = __shScaledHead.totalMax;
+            }
             thead += `<th class="text-center bg-slate-800 text-white font-bold summary-total-col">รวม<br><span class="text-[9px] text-slate-300">${window.formatScoreDisplay(totalMax, 2)}</span></th>`;
             thead += `<th class="text-center bg-emerald-600 text-white font-bold sh-bonus-col" style="font-size:10px;padding:2px 1px;white-space:nowrap" title="คะแนนโบนัส — คลิกที่ช่องของนักเรียนเพื่อดูรายละเอียด, ดับเบิลคลิกที่หัวข้อนี้เพื่อตั้งค่าการรวมกับคะแนนรวม" ondblclick="shOvOpenBonusMergeSettings('${cid}')">+โบนัส</th>`;
             thead += `<th class="text-center bg-amber-500 text-white font-bold sh-star-col" style="font-size:10px;padding:2px 1px;white-space:nowrap;cursor:pointer" title="ดับเบิลคลิกเพื่อแปลงดาวเป็นคะแนน" ondblclick="if(typeof window.openStarConversionPopup==='function') window.openStarConversionPopup()">⭐ดาว</th>`;
@@ -4873,6 +4883,10 @@ async function submitPlanRequest(planId){
                         tbody += `<td class="text-center font-mono summary-score-col">${displayHtml}</td>`;
                     }
                 });
+                if (typeof window.shComputeScaledCourseTotal === 'function') {
+                    const __shScaledRow = window.shComputeScaledCourseTotal(cid, s.id);
+                    if (__shScaledRow) totalScore = __shScaledRow.total;
+                }
                 // Bonus scores for this student
                 const __bonusByCid = (state.bonusScores && state.bonusScores[cid]) || {};
                 let __totalBonus = 0;
@@ -5580,6 +5594,10 @@ async function submitPlanRequest(planId){
                 headerRow.push(`${p.title}(${isChecklist ? 'เช็คงาน' : 'เต็ม '+window.formatScoreDisplay(p.maxScore,2)})`);
                 if(!isChecklist) tMax = window.addScoreToTotal(tMax, p.maxScore, 2);
             });
+            if (typeof window.shComputeScaledCourseTotal === 'function') {
+                const __shScaledExportHead = window.shComputeScaledCourseTotal(cid, null);
+                if (__shScaledExportHead) tMax = __shScaledExportHead.totalMax;
+            }
             headerRow.push(`รวมคะแนน(เต็ม ${window.formatScoreDisplay(tMax, 2)})`);
             headerRow.push(`เกรดที่ได้`);
             aoa.push(headerRow);
@@ -5605,6 +5623,10 @@ async function submitPlanRequest(planId){
                         else row.push(window.normalizeScoreNumber(rawScore, 2));
                     }
                 });
+                if (typeof window.shComputeScaledCourseTotal === 'function') {
+                    const __shScaledExportRow = window.shComputeScaledCourseTotal(cid, s.id);
+                    if (__shScaledExportRow) totalScore = __shScaledExportRow.total;
+                }
                 row.push(window.normalizeScoreNumber(totalScore, 2));
 
                 let gradeDisplay = '-';
