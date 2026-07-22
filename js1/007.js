@@ -4705,7 +4705,16 @@ async function submitPlanRequest(planId){
             msgEl.innerHTML = `ชื่องาน: ${escapeHTML(plan.title || '')}<br>คะแนนเต็ม: ${escapeHTML(scoreText)}`;
             iconEl.innerHTML = '<i class="fas fa-check-circle text-emerald-500 drop-shadow-md"></i>';
             if (extraActions) {
-                extraActions.innerHTML = `<button type="button" onclick="closeCustomAlert(); jumpToScoreEntry('${courseId}', '${plan.week}');" class="w-full mb-3 bg-primary hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-indigo-200"><i class="fas fa-pen mr-2"></i>ไปหน้ากรอกคะแนนสัปดาห์นี้</button>`;
+                extraActions.innerHTML = '';
+                const goBtn = document.createElement('button');
+                goBtn.type = 'button';
+                goBtn.className = 'w-full mb-3 bg-primary hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-indigo-200';
+                goBtn.innerHTML = '<i class="fas fa-pen mr-2"></i>ไปหน้ากรอกคะแนนสัปดาห์นี้';
+                goBtn.addEventListener('click', () => {
+                    window.closeCustomAlert();
+                    window.jumpToScoreEntry(courseId, plan.week);
+                });
+                extraActions.appendChild(goBtn);
             }
             if (okBtn) { okBtn.className = 'w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-medium py-3.5 rounded-2xl transition'; okBtn.textContent = 'ปิด'; }
 
