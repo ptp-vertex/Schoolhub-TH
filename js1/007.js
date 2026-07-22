@@ -4687,6 +4687,26 @@ async function submitPlanRequest(planId){
             const scoreText = isChecklist ? 'เช็คงาน' : `${plan.maxScore} คะแนน`;
             showCustomAlert(`สัปดาห์ที่ ${plan.week}`, `ชื่องาน: ${plan.title}\nคะแนนเต็ม: ${scoreText}`);
         };
+        // กระโดดไปหน้ากรอกคะแนนของสัปดาห์ที่เลือก โดยเลือกสัปดาห์นั้นให้อัตโนมัติ
+        window.jumpToScoreEntry = (courseId, week, ev) => {
+            if (ev && ev.stopPropagation) ev.stopPropagation();
+            if (courseId && courseId !== currentActiveCourseId) {
+                if (typeof window.openCourseDetail === 'function') { window.openCourseDetail(courseId); }
+                else if (typeof window.selectCourse === 'function') { window.selectCourse(courseId); }
+            }
+            window.switchCourseTab('scores');
+            setTimeout(() => {
+                const scoreWeek = document.getElementById('score-week');
+                if (scoreWeek) {
+                    scoreWeek.value = String(week);
+                    if (typeof window.handleScoreWeekChange === 'function') window.handleScoreWeekChange();
+                }
+                const scoresTab = document.getElementById('course-tab-scores');
+                if (scoresTab && typeof scoresTab.scrollIntoView === 'function') {
+                    scoresTab.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 60);
+        };
         window.renderCourseOverview = () => {
             const table = document.getElementById('course-summary-table'); table.innerHTML = '';
             const courseStudents = window.getCourseStudents(currentActiveCourseId);
@@ -4709,7 +4729,7 @@ async function submitPlanRequest(planId){
             plans.forEach(p => {
                 const isChecklist = Number(p.maxScore) === 0;
                 const subtitle = isChecklist ? 'เช็คงาน' : `เต็ม ${p.maxScore}`;
-                thead += `<th class="text-center bg-indigo-50 text-indigo-700 summary-score-col" title="คลิกเพื่อดูรายละเอียด: สัปดาห์ ${p.week} | ${p.title} | ${subtitle}"><button type="button" onclick="showPlanDetail('${cid}', '${p.id}')" class="week-detail-btn inline-flex items-center justify-center bg-white border border-indigo-200 text-primary font-bold hover:bg-primary hover:text-white transition shadow-sm">${p.week}</button></th>`;
+                thead += `<th class="text-center bg-indigo-50 text-indigo-700 summary-score-col" title="คลิกเพื่อดูรายละเอียด: สัปดาห์ ${p.week} | ${p.title} | ${subtitle}"><div class="inline-flex items-center gap-0.5"><button type="button" onclick="showPlanDetail('${cid}', '${p.id}')" class="week-detail-btn inline-flex items-center justify-center bg-white border border-indigo-200 text-primary font-bold hover:bg-primary hover:text-white transition shadow-sm">${p.week}</button><button type="button" onclick="jumpToScoreEntry('${cid}', '${p.week}', event)" title="ไปหน้ากรอกคะแนนสัปดาห์นี้" class="week-goto-score-btn inline-flex items-center justify-center bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-500 hover:text-white transition shadow-sm" style="width:18px;height:18px;border-radius:6px;font-size:9px;line-height:1"><i class="fas fa-pen"></i></button></div></th>`;
                 if (!isChecklist) totalMax = window.addScoreToTotal(totalMax, p.maxScore, 2);
             });
             thead += `<th class="text-center bg-slate-800 text-white font-bold summary-total-col">รวม<br><span class="text-[9px] text-slate-300">${window.formatScoreDisplay(totalMax, 2)}</span></th>`;
