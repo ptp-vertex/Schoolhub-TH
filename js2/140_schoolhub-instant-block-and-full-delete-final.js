@@ -11,6 +11,7 @@ import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/fire
 import {
   getFirestore, doc, getDoc, collection, getDocs, setDoc, deleteDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 
 (function () {
   if (window.__schoolhubInstantBlockFullDeleteFinal) return;
@@ -20,6 +21,7 @@ import {
   if (!app) return;
   const auth = getAuth(app);
   const db = getFirestore(app);
+  const fns = getFunctions(app);
 
   const norm = v => String(v || '').trim().toLowerCase();
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -180,6 +182,18 @@ import {
     } catch (e) { console.warn('full-delete: read users for sharedTeachers failed', e); }
   }
 
+  // ลบบัญชี Firebase Authentication จริง (ทำไม่ได้จาก client SDK ต้องผ่าน Cloud Function ที่ใช้ Admin SDK)
+  // ดู functions/index.js: deleteUserAccount
+  async function deleteRealAuthAccount(uid) {
+    if (!uid) return;
+    try {
+      const call = httpsCallable(fns, 'deleteUserAccount');
+      await call({ uid });
+    } catch (e) {
+      console.warn('full-delete: ลบบัญชี Firebase Auth จริงไม่สำเร็จ (ข้อมูล Firestore ถูกลบแล้ว แต่บัญชี Auth อาจยังค้างอยู่):', e);
+    }
+  }
+
   async function fullyWipeUser(uid, key, email) {
     const ids = new Set([uid, key, email].map(norm).filter(Boolean));
     if (!ids.size) return;
@@ -191,7 +205,8 @@ import {
       ...targets.map(deleteUserPrivateRoot),
       deletePlanRequests(ids),
       cleanupTeams(ids),
-      cleanupSharedTeachers(ids)
+      cleanupSharedTeachers(ids),
+      deleteRealAuthAccount(uid) // ลบบัญชี Auth จริง ไม่ใช่แค่ Firestore
     ]);
   }
 
