@@ -3809,6 +3809,19 @@ async function submitPlanRequest(planId){
                     setGoogleLoginButtonLoading(false);
                     return showCustomAlert('ไม่พบอีเมลผู้ใช้ กรุณาเข้าสู่ระบบด้วยอีเมล','ระบบหยุดการสร้างข้อมูลผู้ใช้ เพราะบัญชี Google นี้ไม่มีอีเมล',true);
                 }
+                // FIX: เช็กสถานะบล็อก/ถูกลบ "ทันที" หลัง signInWithPopup สำเร็จ ก่อนโหลดข้อมูลหรือเข้า main-app
+                // (เดิมเส้นทาง Google login ไม่มีการเช็กนี้ ทำให้ผู้ใช้ที่ถูกบล็อกล็อกอินผ่านได้ชั่วขณะ
+                // แล้วค่อยถูกเด้งออกทีหลังโดย listener แยกต่างหาก ทำให้ดูเหมือน "เข้าสำเร็จแต่ไม่มีข้อมูล")
+                try {
+                    const blockCheckSnap = await withTimeout(getDoc(doc(db, 'users_status', email)), 8000, 'checkUserStatusGoogle');
+                    if (blockCheckSnap.exists() && ['deleted','blocked'].includes(blockCheckSnap.data().status)) {
+                        await signOut(auth);
+                        window.isSocialAuthenticating = false;
+                        window.__schoolhubGoogleLoginWaiting = false;
+                        setGoogleLoginButtonLoading(false);
+                        return showCustomAlert('บัญชีถูกบล็อก', 'บัญชีนี้ถูกบล็อกโดยผู้ดูแลระบบ กรุณาติดต่อ Admin เพื่อปลดบล็อก', true);
+                    }
+                } catch (e) { /* ถ้าเช็กไม่สำเร็จ ปล่อยผ่านไปก่อน แล้วให้ 140.js listener จับซ้ำอีกชั้น */ }
                 setGoogleLoginButtonLoading(true, 'กำลังเตรียมข้อมูล...');
                 await addUserToDirectory(result.user, result.user.displayName || email, 'user');
                 window.isSocialAuthenticating = false;
