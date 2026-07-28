@@ -563,7 +563,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(loadGlobalSummary, 700);
     setTimeout(hookSaveFunctions, 1500);
     setTimeout(syncAndRebuildStats, 6500);
-    setInterval(hookSaveFunctions, 5000);
+    if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('013_hookSaveFunctions', hookSaveFunctions, 5000); }
+    else { setInterval(hookSaveFunctions, 5000); }
 });
 
 onAuthStateChanged(auth, user => {

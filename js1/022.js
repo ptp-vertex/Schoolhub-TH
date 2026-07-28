@@ -367,7 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
     hookKnownAdminLoginFunctions();
     setTimeout(hookKnownAdminLoginFunctions, 1000);
     setTimeout(hookKnownAdminLoginFunctions, 3000);
-    setInterval(hookKnownAdminLoginFunctions, 5000);
+    if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('022_hookKnownAdminLoginFunctions', hookKnownAdminLoginFunctions, 5000); }
+    else { setInterval(hookKnownAdminLoginFunctions, 5000); }
 
     const form = document.getElementById('central-admin-change-form');
     if (form && !form.__firebaseOnlyAdminBound) {
@@ -401,4 +402,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // เคลียร์ซ้ำหลังโหลด เผื่อโค้ดเดิมเขียน localStorage กลับมา
-setInterval(clearLocalAdminCredentials, 3000);
+if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('022_clearLocalAdminCredentials', clearLocalAdminCredentials, 3000); }
+else { setInterval(clearLocalAdminCredentials, 3000); }

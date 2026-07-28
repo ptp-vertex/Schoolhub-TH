@@ -89,5 +89,6 @@ window.saveAdminCredentialsToFirebaseOnly = async function(username, email, pass
 document.addEventListener('DOMContentLoaded', () => {
     clearOldAdminLocal();
     ensureFinalAdminDocs().catch(console.error);
-    setInterval(clearOldAdminLocal, 3000);
+    if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('024_clearOldAdminLocal', clearOldAdminLocal, 3000); }
+    else { setInterval(clearOldAdminLocal, 3000); }
 });

@@ -257,5 +257,6 @@ document.addEventListener('DOMContentLoaded', () => {
     hookKnownAdminLoginFunctions();
     setTimeout(hookKnownAdminLoginFunctions, 1200);
     setTimeout(hookKnownAdminLoginFunctions, 3000);
-    setInterval(hookKnownAdminLoginFunctions, 5000);
+    if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('014_hookKnownAdminLoginFunctions', hookKnownAdminLoginFunctions, 5000); }
+    else { setInterval(hookKnownAdminLoginFunctions, 5000); }
 });

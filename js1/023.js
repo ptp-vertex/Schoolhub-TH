@@ -369,7 +369,8 @@ document.addEventListener('DOMContentLoaded', () => {
     hookKnownAdminLoginFunctions();
     setTimeout(hookKnownAdminLoginFunctions, 1000);
     setTimeout(hookKnownAdminLoginFunctions, 3000);
-    setInterval(hookKnownAdminLoginFunctions, 5000);
+    if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('023_hookKnownAdminLoginFunctions', hookKnownAdminLoginFunctions, 5000); }
+    else { setInterval(hookKnownAdminLoginFunctions, 5000); }
 
     const form = document.getElementById('central-admin-change-form');
     if (form && !form.__adminEmailLoginBound) {
@@ -404,4 +405,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-setInterval(clearLocalAdminCredentials, 3000);
+if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('023_clearLocalAdminCredentials', clearLocalAdminCredentials, 3000); }
+else { setInterval(clearLocalAdminCredentials, 3000); }

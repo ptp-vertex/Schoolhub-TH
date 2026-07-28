@@ -13,10 +13,12 @@
         var btn = e.target && (e.target.id === 'attendance-calendar-open-btn' || e.target.closest && e.target.closest('#attendance-calendar-open-btn'));
         if(btn) setTimeout(moveCalendarPopupToBody, 0);
     }, true);
-    setInterval(function(){
+    var calendarPopupRescan = function(){
         var popup = document.getElementById('attendance-calendar-popup');
         if(popup && !popup.classList.contains('hidden') && popup.parentElement !== document.body){
             document.body.appendChild(popup);
         }
-    }, 300);
+    };
+    if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('calendarPopupBodyMove', calendarPopupRescan, 1500); }
+    else { setInterval(calendarPopupRescan, 300); }
 })();

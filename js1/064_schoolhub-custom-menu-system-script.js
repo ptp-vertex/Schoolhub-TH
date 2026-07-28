@@ -222,7 +222,8 @@
       ensureViews(); resetForm();
       fs.onSnapshot(menuDoc, snap=>{ customMenus = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : []; ensureViews(); renderUserMenuButtons(); renderAdmin(); }, err=>console.warn('custom menu snapshot failed',err));
       fs.onSnapshot(plansDoc, snap=>{ customPlans = snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : []; renderPlanChecks(editingMenuId ? (customMenus.find(x=>x.id===editingMenuId)?.allowedPlanIds||[]) : []); renderAdmin(); renderUserMenuButtons(); }, err=>console.warn('custom menu plans snapshot failed',err));
-      setInterval(renderUserMenuButtons, 3000);
+      if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('064_renderUserMenuButtons', renderUserMenuButtons, 3000); }
+      else { setInterval(renderUserMenuButtons, 3000); }
     }
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
   }).catch(e=>console.error('SchoolHub custom menu system failed', e));

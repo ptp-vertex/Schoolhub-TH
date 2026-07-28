@@ -101,5 +101,7 @@
   }, true);
 
   document.addEventListener('DOMContentLoaded', function(){ applyWraps(); refreshButtonStates(); setTimeout(refreshButtonStates,500); });
-  setInterval(function(){ applyWraps(); refreshButtonStates(); }, 1000);
+  var rightsUiCleanupRescan = function(){ applyWraps(); refreshButtonStates(); };
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('060_strictRightsUiCleanup', rightsUiCleanupRescan, 2000); }
+  else { setInterval(rightsUiCleanupRescan, 1000); }
 })();

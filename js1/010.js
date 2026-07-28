@@ -150,7 +150,8 @@
       }
     }catch(e){}
   }
-  setInterval(forceLogoutIfBlocked,5000);
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('010_forceLogoutIfBlocked', forceLogoutIfBlocked, 5000); }
+  else { setInterval(forceLogoutIfBlocked,5000); }
 
   // แสดงจำนวนสมาชิกทีมในแผน
   const oldSumm=window.planFeatureSummary;

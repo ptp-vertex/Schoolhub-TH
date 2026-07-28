@@ -87,7 +87,9 @@
         keepReadonlyActionButtonsClickable();
         setTimeout(keepReadonlyActionButtonsClickable, 200);
     });
-    setInterval(function(){
+    var readonlyActionRescan = function(){
         if (isReadonlySharedCourseForPatch()) keepReadonlyActionButtonsClickable();
-    }, 700);
+    };
+    if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('053_readonlySharedActionAlert', readonlyActionRescan, 1500); }
+    else { setInterval(readonlyActionRescan, 700); }
 })();

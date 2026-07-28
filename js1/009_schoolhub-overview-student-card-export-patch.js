@@ -242,7 +242,8 @@
       }
     }catch(e){}
   }
-  setInterval(forceLogoutIfBlocked_, 5000);
+  if(window.schoolhubDebouncedRescan){ window.schoolhubDebouncedRescan('overviewStudentCardExport_forceLogout', forceLogoutIfBlocked_, 5000); }
+  else { setInterval(forceLogoutIfBlocked_, 5000); }
 
 
 })();
