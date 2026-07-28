@@ -333,16 +333,25 @@ function enhance(sel){
 })();
 
 // ── Watch DOM for dynamically added selects ──────────────────────────────────
-var domMo = new MutationObserver(function(muts){
-  muts.forEach(function(m){
-    m.addedNodes.forEach(function(n){
-      if(!n||n.nodeType!==1) return;
-      if(n.tagName==='SELECT'){ enhance(n); return; }
-      if(n.querySelectorAll) n.querySelectorAll('select:not(.shdd-real-select)').forEach(enhance);
+// เดิม: MutationObserver เฝ้าทั้งหน้า (document.body, subtree:true) แล้ว querySelectorAll
+// สแกนซ้ำทุก node ที่เพิ่มเข้ามาแบบ synchronous ทันทีไม่มี debounce เลย — ยิ่งหน้าที่ DOM
+// เปลี่ยนถี่ (เช่นหน้าคะแนน/ตาราง) ยิ่งกระตุกเพราะ callback นี้ทำงานซ้อนทุกครั้งที่มีการเปลี่ยนแปลง
+// แก้ใหม่: ใช้ scheduler กลาง (schoolhubDebouncedRescan) ที่ debounce ผ่าน requestAnimationFrame
+// ให้แทน แล้วสแกนทั้งหน้าครั้งเดียวรวมกัน (convertAll ด้านล่างเป็น idempotent สแกนซ้ำได้ปลอดภัย)
+if (window.schoolhubDebouncedRescan) {
+  window.schoolhubDebouncedRescan('shddUniversalEnhancer', function(){ convertAll(); }, 3000);
+} else {
+  var domMo = new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      m.addedNodes.forEach(function(n){
+        if(!n||n.nodeType!==1) return;
+        if(n.tagName==='SELECT'){ enhance(n); return; }
+        if(n.querySelectorAll) n.querySelectorAll('select:not(.shdd-real-select)').forEach(enhance);
+      });
     });
   });
-});
-if(document.body) domMo.observe(document.body,{childList:true,subtree:true});
+  if(document.body) domMo.observe(document.body,{childList:true,subtree:true});
+}
 
 // ── Initial conversion ───────────────────────────────────────────────────────
 function convertAll(){

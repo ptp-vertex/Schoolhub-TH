@@ -393,7 +393,9 @@ import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.
   });
 
   // เมื่อแผงโปรไฟล์ในหน้าตั้งค่าถูก render ขึ้นมา (มีปุ่มกล้องปรากฏ) ให้โหลดรูปปัจจุบันมาแสดง
-  const observer = new MutationObserver(function () {
+  // เดิม: MutationObserver เฝ้าทั้งหน้า (document.body, subtree:true) ทำงานตลอดไปไม่มีวันเลิก
+  // แก้ใหม่: ใช้ scheduler กลาง (debounce ผ่าน requestAnimationFrame) แทนการเฝ้าทั้งหน้าเอง
+  function checkSettingsProfileAvatarHost(){
     const host = document.getElementById('schoolhub-settings-profile-host');
     if (host && host.querySelector('#settings-profile-avatar-pick-btn') && host.dataset.shcmAvatarLoaded !== '1') {
       host.dataset.shcmAvatarLoaded = '1';
@@ -403,8 +405,13 @@ import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.
     if (host && !host.querySelector('#settings-profile-avatar-pick-btn')) {
       host.dataset.shcmAvatarLoaded = '';
     }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
+  }
+  if (window.schoolhubDebouncedRescan) {
+    window.schoolhubDebouncedRescan('avatarSettingsProfileHost', checkSettingsProfileAvatarHost, 3000);
+  } else {
+    const observer = new MutationObserver(checkSettingsProfileAvatarHost);
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
 
   // ห่อฟังก์ชันบันทึกโปรไฟล์เดิม เพื่อบันทึกรูปโปรไฟล์ไปพร้อมกันทุกครั้งที่กด "บันทึกโปรไฟล์"
   function wrapSaveProfile() {
