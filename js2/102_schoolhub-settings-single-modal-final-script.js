@@ -945,6 +945,10 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, quer
 
       if (typeof bindGeneralPanelEvents === 'function') bindGeneralPanelEvents();
       if (typeof fillSettingsProfileData === 'function') fillSettingsProfileData();
+      // fillSettingsProfileData() สร้างฟอร์มโปรไฟล์ (ปุ่มบันทึก/ขอรีเซ็ตรหัสผ่าน) แทรกเข้า
+      // #schoolhub-settings-profile-host แบบ synchronous หลังจากบรรทัดนี้ ปุ่มจึงเพิ่งมีอยู่จริง
+      // ต้องผูก event อีกครั้ง ไม่งั้นปุ่มที่เห็นจะไม่มี listener ติดอยู่เลย (กดแล้วไม่ทำงาน)
+      if (typeof bindGeneralPanelEvents === 'function') bindGeneralPanelEvents();
       if (typeof unlockSettingsControls === 'function') unlockSettingsControls();
       if (typeof forceSettingsContentVisible === 'function') forceSettingsContentVisible();
       /* tour card อยู่ในแท็บ "วิธีใช้งาน" (learn) แล้ว ไม่ต้อง render ที่ general */
