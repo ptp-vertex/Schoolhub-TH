@@ -264,7 +264,7 @@ async function renderShareHistory(cid){
         + '</div>'
         + '<div class="sh-hist-status">'
           + '<div class="sh-hist-status-badge" style="background:' + statusColor + '1a;color:' + statusColor + ';border:1.5px solid ' + statusColor + '33">' + statusText + '</div>'
-          + (isActive ? '<div class="sh-hist-countdown" data-expires="' + effectiveExpiresAt + '" data-token="' + token + '" style="font-size:11px;color:#64748b"><i class="fas fa-clock mr-1"></i>' + min + ':' + (sec<10?'0':'') + sec + '</div>' : '')
+          + (isActive && expiresAt ? '<div class="sh-hist-countdown" data-expires="' + effectiveExpiresAt + '" data-token="' + token + '" style="font-size:11px;color:#64748b"><i class="fas fa-clock mr-1"></i>' + min + ':' + (sec<10?'0':'') + sec + '</div>' : '')
           + (isActive && !expiresAt ? '<div class="sh-hist-set-minutes" style="font-size:11px;color:#059669;font-weight:600;margin-top:2px"><i class="fas fa-hourglass-half mr-1"></i>ตั้งเวลาไว้ ' + expireMinutes + ' นาที</div>' : '')
         + '</div>'
       + '</div>'
