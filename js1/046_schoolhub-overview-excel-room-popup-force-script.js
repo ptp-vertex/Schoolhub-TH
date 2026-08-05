@@ -71,6 +71,14 @@
     var totalMax=0;
     var header=['ลำดับ','รหัสนักเรียน','ชื่อ - นามสกุล','ห้อง','มา','สาย','ขาด','ลา'];
     plans.forEach(function(p){ var full=Number(p.maxScore||0); header.push('สัปดาห์ที่ '+p.week+'\n'+(p.title||'')+'\n'+(full===0?'(เช็คงาน)':'(เต็ม '+window.formatScoreDisplay(full,2)+')')); if(full!==0) totalMax = window.addScoreToTotal(totalMax, full, 2); });
+    // [แก้] เดิมไฟล์นี้คำนวณ "คะแนนเต็มรวม" จากผลรวมคะแนนเต็มของทุกงานตรง ๆ เท่านั้น
+    // ไม่เคยเช็คว่าวิชานี้ตั้ง "ระบบหารคะแนน (ปรับคะแนนเต็ม)" ไว้หรือไม่ ทำให้ไฟล์ Excel ที่โหลดออกมา
+    // แสดงคะแนนเต็ม/คะแนนรวมแบบดิบเสมอ ไม่ใช่คะแนนที่ถูกปรับ(หาร)ตามกฎที่ตั้งไว้ในหน้าตั้งค่าเกรด
+    var __shScoreScaleApplied = false;
+    if (typeof window.shComputeScaledCourseTotal === 'function') {
+      var __shScaledHead = window.shComputeScaledCourseTotal(cid, null);
+      if (__shScaledHead) { totalMax = __shScaledHead.totalMax; __shScoreScaleApplied = true; }
+    }
     header.push('รวมคะแนน(เต็ม '+window.formatScoreDisplay(totalMax,2)+')','เกรด','โบนัส','ดาว','หมายเหตุ');
     var aoa=[['สรุปภาพรวมวิชา: '+cName],['ห้อง: '+(room || 'ทุกห้อง')],[],header];
     var bonusByCid=(state.bonusScores && state.bonusScores[cid]) || {};
@@ -90,6 +98,12 @@
           if(Number(p.maxScore||0)===0) row.push(raw===1?'ส่งแล้ว':(raw===0?'ยังไม่ส่ง':'-'));
           else { total = window.addScoreToTotal(total, raw, 2); row.push(!task ? '-' : ((window.isMissingScoreValue ? window.isMissingScoreValue(raw) : raw==='')?'ขาดส่ง':window.normalizeScoreNumber(raw,2))); }
         });
+        // [แก้] แทนคะแนนรวมดิบด้วยคะแนนที่ผ่านระบบหารคะแนน(ปรับคะแนนเต็ม)แล้ว ถ้าวิชานี้ตั้งกฎไว้
+        var __shScaledRow = null;
+        if (!isWithdrawn && typeof window.shComputeScaledCourseTotal === 'function') {
+          __shScaledRow = window.shComputeScaledCourseTotal(cid, st.id);
+          if (__shScaledRow) total = __shScaledRow.total;
+        }
         if (isWithdrawn) { row.push('ลาออก','ลาออก','ลาออก','ลาออก','ลาออก'); aoa.push(row); return; }
         var totalBonus=0;
         Object.keys(bonusByCid).forEach(function(wk){ var wVal=bonusByCid[wk] && bonusByCid[wk][st.id]; if(wVal!==undefined && wVal!=='' && !isNaN(Number(wVal)) && Number(wVal)!==0) totalBonus += Number(wVal); });
@@ -113,6 +127,11 @@
           total = window.addScoreToTotal(total, mergedAmount, 2);
           note = 'รวมคะแนนโบนัส +' + window.formatScoreDisplay(mergedAmount,2) + ' คะแนนในคะแนนรวมแล้ว (' + (Number(bmSettings.percent)||0) + '%)';
         }
+      }
+      // [ใหม่] บอกในหมายเหตุด้วยว่าคะแนนรวมนี้ผ่านระบบหารคะแนน(ปรับคะแนนเต็ม)มาแล้ว จะได้ไม่สับสนว่าทำไมคะแนนเต็ม/คะแนนรวมไม่ตรงกับผลรวมดิบของแต่ละงาน
+      if (__shScoreScaleApplied && __shScaledRow) {
+        var __shScaleNote = 'ปรับคะแนนเต็มด้วยระบบหารคะแนนแล้ว (เต็ม ' + window.formatScoreDisplay(__shScaledRow.totalMax,2) + ' คะแนน)';
+        note = note ? (note + ' | ' + __shScaleNote) : __shScaleNote;
       }
       total = window.normalizeScoreNumber(total,2);
       row.push(total, (totalMax>0 ? gradeOf(total, criteria, c, st) : '-'));
