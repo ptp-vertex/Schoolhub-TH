@@ -239,7 +239,13 @@ async function renderShareHistory(cid){
     var disabledFlag = !!(r.disabled || (r.data && r.data.disabled));
     var timeExpired = expiresAt ? (expiresAt <= now) : false;
     var isActive = !disabledFlag && !timeExpired;
-    var remaining = expiresAt ? Math.max(0, expiresAt - now) : (expireMinutes * 60 * 1000);
+    // แก้บั๊ก: กรณีลิงก์ยังไม่ถูกเปิด (ยังไม่มี expiresAt จาก Firestore) เดิมคำนวณ remaining
+    // จาก expireMinutes ตรง ๆ แต่ใส่ data-expires="0" ทำให้ startCountdown() เจอ exp=0 (falsy)
+    // แล้ว return ทิ้งทันที เวลาจึงค้างอยู่ค่าที่โหลดครั้งแรกตลอดไป ไม่นับถอยหลังจริง
+    // แก้โดยคำนวณ "เวลาหมดอายุจริง" (absolute timestamp) จาก createdAt + expireMinutes ไว้ล่วงหน้าเสมอ
+    // แล้วใช้ค่านี้เป็น fallback ให้ data-expires เพื่อให้ interval นับถอยหลังได้ต่อเนื่องแบบเรียลไทม์
+    var effectiveExpiresAt = expiresAt || (createdAt ? (createdAt + expireMinutes * 60 * 1000) : (now + expireMinutes * 60 * 1000));
+    var remaining = Math.max(0, effectiveExpiresAt - now);
     var totalSec = Math.ceil(remaining / 1000);
     var min = Math.floor(totalSec / 60);
     var sec = totalSec % 60;
@@ -258,7 +264,7 @@ async function renderShareHistory(cid){
         + '</div>'
         + '<div class="sh-hist-status">'
           + '<div class="sh-hist-status-badge" style="background:' + statusColor + '1a;color:' + statusColor + ';border:1.5px solid ' + statusColor + '33">' + statusText + '</div>'
-          + (isActive ? '<div class="sh-hist-countdown" data-expires="' + (expiresAt||0) + '" data-token="' + token + '" style="font-size:11px;color:#64748b"><i class="fas fa-clock mr-1"></i>' + min + ':' + (sec<10?'0':'') + sec + '</div>' : '')
+          + (isActive ? '<div class="sh-hist-countdown" data-expires="' + effectiveExpiresAt + '" data-token="' + token + '" style="font-size:11px;color:#64748b"><i class="fas fa-clock mr-1"></i>' + min + ':' + (sec<10?'0':'') + sec + '</div>' : '')
         + '</div>'
       + '</div>'
       + '<div class="sh-hist-card-bottom">'
@@ -286,7 +292,9 @@ function startCountdown(){
     var now = Date.now();
     document.querySelectorAll('.sh-hist-countdown').forEach(function(el){
       var exp = parseInt(el.getAttribute('data-expires'), 10);
-      if(!exp) return;
+      // เดิมใช้ if(!exp) return; ซึ่งจะข้ามการอัปเดตไปเลยถ้า exp เป็น 0 (falsy)
+      // เปลี่ยนมาเช็ค isNaN แทน เพื่อไม่ให้พลาดอัปเดตเวลาในกรณีขอบ ๆ
+      if(isNaN(exp)) return;
       var rem = Math.max(0, exp - now);
       var sec = Math.ceil(rem/1000);
       if(sec <= 0){ el.innerHTML = 'หมดอายุ'; el.closest('.sh-hist-card')?.classList.add('sh-hist-expired'); }
