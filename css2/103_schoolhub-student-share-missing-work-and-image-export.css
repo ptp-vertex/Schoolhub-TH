@@ -1,0 +1,164 @@
+/*
+ * Continuity Ledger export redesign: Thai-first academic report, indigo hierarchy,
+ * fixed three-column tables, restrained orange status accents, and predictable A4 pages.
+ */
+.schoolhub-student-share-missing-work-card {
+  margin-top: 1.5rem; border: 1px solid #c7d2fe; border-radius: 1.25rem;
+  background: linear-gradient(180deg, #f8faff 0%, #fff 100%); overflow: hidden;
+  box-shadow: 0 12px 28px rgba(79,70,229,.08);
+}
+.schoolhub-student-share-missing-work-head { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1.25rem 1.25rem 1rem; border-bottom:1px solid #e0e7ff; }
+.schoolhub-student-share-missing-work-eyebrow { color:#4f46e5; font-size:.69rem; font-weight:900; letter-spacing:.06em; text-transform:uppercase; }
+.schoolhub-student-share-missing-work-head h3 { margin:.28rem 0 0; color:#1e1b4b; font-size:1.15rem; font-weight:900; }
+.schoolhub-student-share-missing-work-head p { margin:.3rem 0 0; color:#64748b; font-size:.8rem; line-height:1.5; }
+.schoolhub-student-share-missing-work-count { flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:.14rem; border-radius:999px; background:#eef2ff; color:#4338ca; padding:.42rem .72rem; font-size:.76rem; font-weight:800; white-space:nowrap; }
+.schoolhub-student-share-missing-work-count small { color:#818cf8; font-size:.64rem; font-weight:800; }
+.schoolhub-student-share-missing-work-list { padding:.4rem 1.25rem; }
+.schoolhub-student-share-missing-work-item { display:grid; grid-template-columns:5.2rem minmax(0,1fr) auto; align-items:center; gap:.8rem; padding:.85rem 0; border-bottom:1px solid #eef2ff; }
+.schoolhub-student-share-missing-work-item:last-child { border-bottom:0; }
+.schoolhub-student-share-missing-work-week { color:#4f46e5; font-size:.75rem; font-weight:900; }
+.schoolhub-student-share-missing-work-title { min-width:0; color:#334155; font-size:.88rem; font-weight:700; overflow-wrap:anywhere; }
+.schoolhub-student-share-missing-work-title span { display:inline-block; margin-left:.35rem; color:#94a3b8; font-size:.7rem; font-weight:700; white-space:nowrap; }
+.schoolhub-student-share-missing-work-status { border-radius:999px; background:#fff7ed; color:#c2410c; padding:.35rem .58rem; font-size:.7rem; font-weight:800; white-space:nowrap; }
+.schoolhub-student-share-missing-work-empty { display:flex; align-items:center; gap:.6rem; padding:1.2rem 1.25rem; color:#047857; font-size:.88rem; font-weight:800; }
+.schoolhub-student-share-missing-work-empty i { color:#10b981; font-size:1.05rem; }
+
+.schoolhub-missing-work-export-menu { position:relative; flex:0 0 auto; }
+.schoolhub-missing-work-export-button { display:inline-flex; align-items:center; gap:.42rem; background:#eef2ff !important; color:#4338ca !important; }
+.schoolhub-missing-work-export-button:hover { background:#e0e7ff !important; }
+.schoolhub-missing-work-export-button:disabled { cursor:wait; opacity:.72; }
+.schoolhub-missing-work-export-chevron { margin-left:.1rem; font-size:.65rem; }
+.schoolhub-missing-work-export-popover { position:absolute; z-index:40; right:0; top:calc(100% + .5rem); width:235px; padding:.35rem; border:1px solid #dbeafe; border-radius:.9rem; background:#fff; box-shadow:0 18px 40px rgba(30,41,59,.16); }
+.schoolhub-missing-work-export-popover.hidden { display:none; }
+.schoolhub-missing-work-export-popover > button { display:flex; align-items:center; width:100%; gap:.72rem; padding:.62rem .7rem; border:0; border-radius:.65rem; background:transparent; color:#334155; text-align:left; }
+.schoolhub-missing-work-export-popover > button:hover, .schoolhub-missing-work-export-popover > button:focus-visible { background:#eef2ff; outline:none; }
+.schoolhub-missing-work-export-popover > button > i { width:1.25rem; color:#4f46e5; text-align:center; }
+.schoolhub-missing-work-export-popover > button:nth-child(1) > i { color:#15803d; }
+.schoolhub-missing-work-export-popover > button:nth-child(2) > i { color:#dc2626; }
+.schoolhub-missing-work-export-popover > button:nth-child(4) > i { color:#0f766e; }
+.schoolhub-missing-work-export-popover b, .schoolhub-missing-work-export-popover small { display:block; }
+.schoolhub-missing-work-export-popover b { color:#1e293b; font-size:.78rem; font-weight:900; }
+.schoolhub-missing-work-export-popover small { margin-top:.1rem; color:#94a3b8; font-size:.66rem; font-weight:600; }
+
+/* Long PNG report: compact, calm, and readable at mobile share sizes. */
+.schoolhub-missing-work-image-sheet, .schoolhub-missing-work-pdf-page {
+  box-sizing:border-box; color:#172033; font-family:"Noto Sans Thai", Tahoma, Arial, sans-serif;
+  font-synthesis:none; font-kerning:normal; text-rendering:optimizeLegibility;
+  letter-spacing:normal; word-break:normal; overflow-wrap:normal;
+}
+.schoolhub-missing-work-image-sheet { position:fixed; left:-20000px; top:0; width:1080px; padding:34px 34px 34px; background:#f3f6fb; }
+.schoolhub-missing-work-image-head { position:relative; overflow:hidden; padding:32px 36px 30px; border-radius:24px; background:linear-gradient(135deg,#312e81 0%,#4338ca 62%,#6366f1 100%); color:#fff; box-shadow:0 18px 34px rgba(49,46,129,.2); }
+.schoolhub-missing-work-image-head:after { position:absolute; right:-70px; bottom:-100px; width:280px; height:280px; border:44px solid rgba(255,255,255,.09); border-radius:50%; content:""; }
+.schoolhub-missing-work-image-brand { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:900; letter-spacing:.01em; }
+.schoolhub-missing-work-image-brand-mark { display:inline-flex; width:31px; height:31px; align-items:center; justify-content:center; border-radius:10px; background:#a5b4fc; color:#312e81; }
+.schoolhub-missing-work-image-date { margin-top:18px; color:#c7d2fe; font-size:12px; font-weight:700; }
+.schoolhub-missing-work-image-head h1 { margin:7px 0 4px; font-size:32px; line-height:1.18; font-weight:900; letter-spacing:-.02em; }
+.schoolhub-missing-work-image-head p { margin:0; color:#e0e7ff; font-size:15px; font-weight:700; }
+.schoolhub-missing-work-image-summary { display:flex; flex-wrap:wrap; gap:8px; margin-top:17px; color:#eef2ff; font-size:12px; font-weight:800; }
+.schoolhub-missing-work-image-summary span { padding:7px 10px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(15,23,42,.18); }
+.schoolhub-missing-work-image-list { display:grid; gap:14px; margin-top:18px; }
+.schoolhub-missing-work-image-card { overflow:hidden; border:1px solid #e1e7f0; border-radius:16px; background:#fff; box-shadow:0 5px 15px rgba(15,23,42,.045); }
+.schoolhub-missing-work-image-card-head { display:flex; justify-content:space-between; align-items:center; gap:18px; padding:17px 20px 15px; border-bottom:1px solid #e7ebf2; background:#fbfcfe; }
+.schoolhub-missing-work-image-student-block { min-width:0; flex:1 1 auto; }
+.schoolhub-missing-work-image-student { min-width:0; color:#172033; font-size:16px; font-weight:800; line-height:1.35; overflow-wrap:break-word; word-break:normal; }
+.schoolhub-missing-work-image-code { margin-top:3px; color:#718096; font-size:10px; font-weight:600; white-space:nowrap; }
+.schoolhub-missing-work-image-metrics { display:flex; width:208px; min-width:208px; gap:7px; flex:0 0 208px; }
+.schoolhub-missing-work-image-metric { display:flex; min-width:0; flex:1 1 0; flex-direction:column; align-items:flex-end; gap:2px; padding:7px 10px; border-radius:11px; text-align:right; box-sizing:border-box; }
+.schoolhub-missing-work-image-metric b { font-size:11px; font-weight:900; white-space:nowrap; }
+.schoolhub-missing-work-image-metric small { font-size:10px; font-weight:800; white-space:nowrap; }
+.schoolhub-missing-work-image-metric-missing { background:#fff7ed; color:#c2410c; }
+.schoolhub-missing-work-image-metric-progress { background:#ecfdf5; color:#047857; }
+.schoolhub-missing-work-image-table-head, .schoolhub-missing-work-image-item { display:grid; grid-template-columns:116px minmax(0,1fr) 174px; gap:12px; align-items:center; }
+.schoolhub-missing-work-image-table-head { padding:8px 20px; color:#94a3b8; background:#f8fafc; font-size:10px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; }
+.schoolhub-missing-work-image-table-head > span, .schoolhub-missing-work-image-item > span { min-width:0; box-sizing:border-box; position:relative; top:1px; padding-top:2px; padding-bottom:2px; line-height:1.45; }
+.schoolhub-missing-work-image-table-head span:last-child { text-align:right; }
+.schoolhub-missing-work-image-items { padding:0 20px; }
+.schoolhub-missing-work-image-item { min-height:35px; padding:8px 0; border-bottom:1px solid #f0f3f7; }
+.schoolhub-missing-work-image-item:last-child { border-bottom:none; }
+.schoolhub-missing-work-image-week { color:#4f46e5; font-size:11px; font-weight:900; white-space:nowrap; }
+.schoolhub-missing-work-image-title { min-width:0; color:#334155; font-size:11px; font-weight:600; line-height:1.45; overflow-wrap:break-word; word-break:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; padding-right:6px; }
+.schoolhub-missing-work-image-title small { color:#94a3b8; font-size:9px; font-weight:600; }
+.schoolhub-missing-work-image-status { width:174px; min-width:0; justify-self:stretch; box-sizing:border-box; border-radius:999px; background:#fff7ed; color:#c2410c; padding:7px 10px 8px; font-size:10px; font-weight:900; line-height:1.2; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.schoolhub-missing-work-image-foot { padding-top:18px; color:#94a3b8; font-size:10px; font-weight:700; text-align:center; }
+
+/* A4 PDF page: each page is created per student/chunk, so no long-sheet clipping. */
+.schoolhub-missing-work-pdf-page { position:fixed; left:-20000px; top:0; width:794px; min-height:1123px; padding:30px 42px 28px; background:#fff; }
+.schoolhub-missing-work-pdf-kicker { color:#4f46e5; font-size:11px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+.schoolhub-missing-work-pdf-title-row { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; margin-top:12px; padding-bottom:16px; border-bottom:2px solid #e0e7ff; }
+.schoolhub-missing-work-pdf-title-row > div:first-child { min-width:0; flex:1 1 auto; }
+.schoolhub-missing-work-pdf-title-row h1 { margin:0; color:#172033; font-size:22px; line-height:1.28; font-weight:800; overflow-wrap:break-word; word-break:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+.schoolhub-missing-work-pdf-title-row p { margin:5px 0 0; color:#718096; font-size:10px; font-weight:700; }
+.schoolhub-missing-work-pdf-page-no { flex:0 0 auto; color:#64748b; font-size:10px; font-weight:800; }
+.schoolhub-missing-work-pdf-student { display:flex; justify-content:space-between; align-items:center; gap:18px; margin-top:17px; padding:15px 17px; border:1px solid #e0e7ff; border-radius:14px; background:linear-gradient(135deg,#f8faff,#fff); }
+.schoolhub-missing-work-pdf-student > div:first-child { min-width:0; flex:1 1 auto; }
+.schoolhub-missing-work-pdf-student h2 { margin:0; color:#172033; font-size:16px; line-height:1.38; font-weight:800; overflow-wrap:break-word; word-break:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+.schoolhub-missing-work-pdf-student p { margin:4px 0 0; color:#718096; font-size:10px; font-weight:700; }
+.schoolhub-missing-work-pdf-stats { display:flex; width:184px; min-width:184px; gap:7px; flex:0 0 184px; }
+.schoolhub-missing-work-pdf-stats span { display:flex; min-width:0; flex:1 1 0; box-sizing:border-box; flex-direction:column; align-items:flex-end; gap:2px; padding:7px 9px; border-radius:10px; }
+.schoolhub-missing-work-pdf-stats b { font-size:10px; font-weight:900; white-space:nowrap; }
+.schoolhub-missing-work-pdf-stats small { font-size:9px; font-weight:800; white-space:nowrap; }
+.schoolhub-missing-work-pdf-stats .missing { background:#fff7ed; color:#c2410c; }
+.schoolhub-missing-work-pdf-stats .progress { background:#ecfdf5; color:#047857; }
+.schoolhub-missing-work-pdf-table { margin-top:14px; overflow:hidden; border:1px solid #e2e8f0; border-radius:12px; }
+.schoolhub-missing-work-pdf-table-head, .schoolhub-missing-work-pdf-row { display:grid; grid-template-columns:96px minmax(0,1fr) 148px; gap:10px; align-items:center; }
+.schoolhub-missing-work-pdf-table-head > span, .schoolhub-missing-work-pdf-row > span { min-width:0; box-sizing:border-box; position:relative; top:1px; padding-top:2px; padding-bottom:2px; line-height:1.45; }
+.schoolhub-missing-work-pdf-table-head { padding:8px 14px; color:#64748b; background:#eef2ff; font-size:9px; font-weight:900; letter-spacing:.04em; }
+.schoolhub-missing-work-pdf-table-head span:last-child { text-align:right; }
+.schoolhub-missing-work-pdf-row { min-height:31px; padding:6px 14px; border-top:1px solid #f1f5f9; }
+.schoolhub-missing-work-pdf-row .week { color:#4f46e5; font-size:10px; font-weight:900; white-space:nowrap; }
+.schoolhub-missing-work-pdf-row .title { min-width:0; color:#334155; font-size:9.5px; font-weight:600; line-height:1.42; overflow-wrap:break-word; word-break:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; padding-right:5px; }
+.schoolhub-missing-work-pdf-row .title small { color:#94a3b8; font-size:8px; }
+.schoolhub-missing-work-pdf-row .status { width:148px; min-width:0; justify-self:stretch; box-sizing:border-box; color:#c2410c; font-size:9px; font-weight:900; line-height:1.25; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:3px 5px 4px; }
+.schoolhub-missing-work-pdf-foot { margin-top:12px; color:#94a3b8; font-size:9px; font-weight:700; text-align:center; }
+
+@media (max-width:640px) {
+  .schoolhub-student-share-missing-work-head { flex-direction:column; }
+  .schoolhub-student-share-missing-work-item { grid-template-columns:1fr auto; gap:.42rem .7rem; }
+  .schoolhub-student-share-missing-work-week { grid-column:1 / -1; }
+  .schoolhub-student-share-missing-work-title { font-size:.82rem; }
+  .schoolhub-missing-work-export-popover { right:auto; left:0; }
+  .schoolhub-missing-work-export-button { padding-left:.65rem; padding-right:.65rem; }
+}
+@media (prefers-reduced-motion:no-preference) {
+  .schoolhub-student-share-missing-work-card { animation:schoolhub-share-card-in 180ms cubic-bezier(.23,1,.32,1) both; }
+  .schoolhub-missing-work-export-button, .schoolhub-missing-work-export-popover { transition:background-color 160ms cubic-bezier(.23,1,.32,1), transform 160ms cubic-bezier(.23,1,.32,1); }
+  .schoolhub-missing-work-export-button:active { transform:scale(.97); }
+  .schoolhub-missing-work-export-popover { animation:schoolhub-export-menu-in 140ms cubic-bezier(.23,1,.32,1) both; transform-origin:top right; }
+}
+@keyframes schoolhub-share-card-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes schoolhub-export-menu-in { from { opacity:0; transform:translateY(-4px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+@media print {
+  .schoolhub-missing-work-image-sheet, .schoolhub-missing-work-pdf-page { position:static; left:auto; width:100%; }
+}
+
+
+/* Export progress: the button keeps its width while the percentage updates. */
+#schoolhub-missing-work-export-button[aria-busy="true"] {
+  min-width: 184px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+#schoolhub-missing-work-export-button .schoolhub-export-progress-track {
+  display: inline-block;
+  width: 58px;
+  height: 6px;
+  overflow: hidden;
+  flex: 0 0 58px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.32);
+  vertical-align: middle;
+}
+#schoolhub-missing-work-export-button .schoolhub-export-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
+  transition: width 160ms ease-out;
+}
+@media (max-width:640px) {
+  #schoolhub-missing-work-export-button[aria-busy="true"] { min-width: 160px; }
+  #schoolhub-missing-work-export-button .schoolhub-export-progress-track { width: 46px; flex-basis:46px; }
+}

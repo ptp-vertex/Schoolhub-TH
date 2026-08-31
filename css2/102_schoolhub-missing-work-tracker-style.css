@@ -1,0 +1,36 @@
+/* SchoolHub: ระบบรวบรวมงานขาดแต่ละคน */
+#schoolhub-missing-work-modal { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+#schoolhub-missing-work-modal.hidden { display: none; }
+.schoolhub-missing-work-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, .45); backdrop-filter: blur(2px); }
+.schoolhub-missing-work-box { position: relative; width: min(680px, 94vw); max-height: 88vh; background: #fff; border-radius: 1.5rem; box-shadow: 0 20px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; overflow: hidden; }
+.schoolhub-missing-work-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 1.25rem 1.5rem 1rem; border-bottom: 1px solid #f1f5f9; }
+.schoolhub-missing-work-title { font-weight: 900; font-size: 1.05rem; color: #be123c; display: flex; align-items: center; gap: .5rem; }
+.schoolhub-missing-work-sub { font-size: .8rem; color: #64748b; font-weight: 700; margin-top: .25rem; }
+.schoolhub-missing-work-close { width: 2.25rem; height: 2.25rem; border-radius: 9999px; background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; }
+.schoolhub-missing-work-close:hover { color: #e11d48; }
+.schoolhub-missing-work-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; padding: .85rem 1.5rem; border-bottom: 1px solid #f1f5f9; align-items: center; }
+.schoolhub-missing-work-toolbar input#schoolhub-missing-work-search { flex: 1 1 160px; border: 1px solid #e2e8f0; border-radius: .75rem; padding: .6rem .9rem; font-size: .85rem; min-width: 140px; }
+.schoolhub-missing-work-toolbar input#schoolhub-missing-work-search:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
+.schoolhub-missing-work-room-wrap { display: flex; flex-wrap: wrap; gap: .35rem; }
+.schoolhub-missing-work-room-chip { display: inline-flex; align-items: center; gap: .3rem; font-size: .72rem; font-weight: 800; color: #4f46e5; background: #eef2ff; border: 1px solid #e0e7ff; padding: .3rem .6rem; border-radius: 9999px; cursor: pointer; user-select: none; }
+.schoolhub-missing-work-room-chip input { accent-color: #4f46e5; }
+.schoolhub-missing-work-export { display: inline-flex; align-items: center; gap: .4rem; padding: .55rem .9rem; border-radius: .75rem; background: #ecfdf5; color: #059669; border: 1px solid #d1fae5; font-weight: 800; font-size: .8rem; white-space: nowrap; }
+.schoolhub-missing-work-export:hover { background: #d1fae5; }
+.schoolhub-missing-work-refresh { width: 2.5rem; height: 2.35rem; border-radius: .75rem; background: #eef2ff; color: #4f46e5; border: 1px solid #e0e7ff; }
+.schoolhub-missing-work-refresh:hover { background: #e0e7ff; }
+.schoolhub-missing-work-body { overflow-y: auto; padding: 1rem 1.5rem 1.5rem; display: flex; flex-direction: column; gap: .75rem; }
+.schoolhub-missing-work-empty { text-align: center; padding: 3rem 1rem; color: #16a34a; font-weight: 800; }
+.schoolhub-missing-work-empty i { font-size: 2rem; display: block; margin-bottom: .5rem; }
+.schoolhub-missing-work-card { border: 1px solid #fee2e2; background: #fff1f2; border-radius: 1rem; padding: .85rem 1rem; }
+.schoolhub-missing-work-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; margin-bottom: .6rem; }
+.schoolhub-missing-work-student { font-weight: 900; color: #1e293b; font-size: .9rem; }
+.schoolhub-missing-work-code { font-family: monospace; color: #64748b; margin-right: .25rem; }
+.schoolhub-missing-work-room { font-size: .72rem; font-weight: 800; color: #6366f1; background: #eef2ff; padding: .15rem .55rem; border-radius: 9999px; }
+.schoolhub-missing-work-count { font-size: .72rem; font-weight: 800; color: #be123c; background: #ffe4e6; padding: .15rem .55rem; border-radius: 9999px; margin-left: auto; }
+.schoolhub-missing-work-items { display: flex; flex-direction: column; gap: .4rem; }
+.schoolhub-missing-work-item { text-align: left; width: 100%; background: #fff; border: 1px solid #fecdd3; border-radius: .65rem; padding: .55rem .75rem; font-size: .8rem; color: #475569; font-weight: 700; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.schoolhub-missing-work-item:hover { background: #fff7f7; border-color: #fb7185; }
+.schoolhub-missing-work-item i { color: #f43f5e; }
+.schoolhub-missing-work-max { color: #94a3b8; font-weight: 600; }
+.schoolhub-missing-work-tag { margin-left: auto; font-size: .68rem; font-weight: 900; color: #be123c; background: #ffe4e6; padding: .1rem .5rem; border-radius: 9999px; }
+.schoolhub-missing-work-highlight { outline: 3px solid #f43f5e !important; outline-offset: 2px; border-radius: .4rem; }
