@@ -81,6 +81,14 @@
         String(a.code || '').localeCompare(String(b.code || ''), 'th', { numeric: true }) ||
         String(a.name || '').localeCompare(String(b.name || ''), 'th');
     });
+    // เลขที่จริงในห้อง: นับตามลำดับรายชื่อทั้งห้อง (1,2,3,...) ไม่ใช่รหัสนักเรียน
+    var seatByRoom = {};
+    var seatMap = {};
+    students.forEach(function (st) {
+      var room = cls(st);
+      seatByRoom[room] = (seatByRoom[room] || 0) + 1;
+      seatMap[st.id] = seatByRoom[room];
+    });
     var plans = plansForCourse(courseId);
     var courseScores = ((window.state && state.scores) || []).filter(function (s) { return String(s.courseId) === String(courseId); });
 
@@ -105,7 +113,7 @@
         }
       });
       if (items.length) {
-        result.push({ student: st, room: cls(st), items: items, trackedWorkCount: trackedWorkCount, missingWorkCount: items.length });
+        result.push({ student: st, room: cls(st), items: items, trackedWorkCount: trackedWorkCount, missingWorkCount: items.length, seatNo: seatMap[st.id] });
       }
     });
     return result;
@@ -220,8 +228,9 @@
   function getExportData() {
     var visible = getFilteredData();
     if (!__selectedIds.size) return visible;
-    var picked = visible.filter(function (row) { return __selectedIds.has(String(row.student.id)); });
-    return picked.length ? picked : visible;
+    // สำคัญ: ถ้าติ๊กเลือกคนไว้แล้ว ต้องใช้เฉพาะคนที่เลือกเท่านั้น ห้ามเงียบๆ สลับไปใช้ทุกคน
+    // (เดิมพลาดตรงนี้ ทำให้เลือกคนเดียวแต่ระบบสร้างเอกสารให้ทุกคน)
+    return visible.filter(function (row) { return __selectedIds.has(String(row.student.id)); });
   }
 
   function pruneSelection() {
@@ -255,7 +264,7 @@
       html += '<div class="schoolhub-missing-work-card' + (isSel ? ' is-selected' : '') + '">' +
         '<div class="schoolhub-missing-work-card-head">' +
           '<input type="checkbox" class="schoolhub-missing-work-card-check" ' + (isSel ? 'checked' : '') + ' aria-label="เลือก ' + esc(st.name || '') + '" onchange="toggleMissingWorkStudentSelection(' + JSON.stringify(sid) + ', this.checked)">' +
-          '<div class="schoolhub-missing-work-student"><span class="schoolhub-missing-work-code">เลขที่ ' + esc(st.code || '-') + '</span> ' + esc(st.name || '') + '</div>' +
+          '<div class="schoolhub-missing-work-student"><span class="schoolhub-missing-work-code">เลขที่ ' + esc(row.seatNo != null ? row.seatNo : '-') + '</span> ' + esc(st.name || '') + '</div>' +
           '<div class="schoolhub-missing-work-room">ห้อง ' + esc(row.room) + '</div>' +
           '<div class="schoolhub-missing-work-count">ขาด ' + row.items.length + ' รายการ</div>' +
         '</div>' +
@@ -527,7 +536,7 @@
           '<div class="schoolhub-mw-doc-avatar">' + esc(studentInitial(st.name)) + '</div>' +
           '<div class="schoolhub-mw-doc-student-info">' +
             '<div class="schoolhub-mw-doc-student-name">' + esc(st.name || '-') + '</div>' +
-            '<div class="schoolhub-mw-doc-student-sub">เลขที่ <b>' + esc(st.code || '-') + '</b> · ห้อง ' + esc(row.room || '-') + '</div>' +
+            '<div class="schoolhub-mw-doc-student-sub">เลขที่ <b>' + esc(row.seatNo != null ? row.seatNo : '-') + '</b> · ห้อง ' + esc(row.room || '-') + '</div>' +
           '</div>' +
           '<div class="schoolhub-mw-doc-stats">' +
             '<div class="schoolhub-mw-doc-stat"><b>' + row.items.length + '</b><small>ขาดทั้งหมด</small></div>' +
@@ -721,7 +730,7 @@
         var canvas = await html2canvas(page, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false, windowWidth: 794 });
         page.remove();
         var st = spec.row.student || {};
-        var label = esc2(st.name || 'นักเรียน') + ' · เลขที่ ' + esc2(st.code || '-') + (spec.pagesForStudent > 1 ? ' (หน้า ' + spec.pageInStudent + '/' + spec.pagesForStudent + ')' : '');
+        var label = esc2(st.name || 'นักเรียน') + ' · เลขที่ ' + esc2(spec.row.seatNo != null ? spec.row.seatNo : '-') + (spec.pagesForStudent > 1 ? ' (หน้า ' + spec.pageInStudent + '/' + spec.pagesForStudent + ')' : '');
         previewPages.push({ canvas: canvas, label: label });
       }
 
