@@ -576,7 +576,7 @@
         window.isStudentWithdrawn = (student) => (typeof window.isWithdrawnStudent === 'function') ? window.isWithdrawnStudent(student) : !!(student && (student.withdrawn === true || student.isWithdrawn === true || student.status === 'ลาออก' || student.status === 'withdrawn'));
         window.getStudentWithdrawnClass = (student) => window.isStudentWithdrawn(student) ? ' schoolhub-withdrawn-text' : '';
         window.getStudentWithdrawnRowClass = (student) => window.isStudentWithdrawn(student) ? ' schoolhub-withdrawn-row' : '';
-        window.getStudentWithdrawnBadge = (student) => window.isStudentWithdrawn(student) ? '<span onclick="event.stopPropagation(); showStudentWithdrawReason(\'' + student.id + '\')" class="schoolhub-withdrawn-badge" title="ดูเหตุผลลาออก" role="button" tabindex="0"><i class="fas fa-user-slash"></i> ลาออก</span>' : '';
+        window.getStudentWithdrawnBadge = (student) => window.isStudentWithdrawn(student) ? '<span onclick="event.stopPropagation(); showStudentWithdrawReason(\'' + student.id + '\')" class="schoolhub-withdrawn-badge" title="ดูรายละเอียดสถานะ" role="button" tabindex="0"><i class="fas fa-user-slash"></i> ' + escapeHTML(student.withdrawType || student.status || 'ลาออก') + '</span>' : '';
         window.refreshWithdrawnStudentViews = function(){
             try { renderStudentsMaster(); } catch(e) {}
             try { updateGlobalViews(); } catch(e) {}
@@ -592,43 +592,88 @@
         };
         window.showStudentWithdrawReason = function(id){
             const s = state.students.find(x => x.id === id); if(!s) return;
-            showCustomAlert('เหตุผลการลาออก', 'นักเรียน: ' + (s.name || '-') + '\nเหตุผล: ' + (s.withdrawReason || '-') + '\nวันที่บันทึก: ' + (s.withdrawDate || '-') + '\nผู้บันทึก: ' + (s.withdrawBy || '-'));
+            showCustomAlert('รายละเอียดสถานะ', 'นักเรียน: ' + (s.name || '-') + '\nหัวข้อ: ' + (s.withdrawType || s.status || '-') + '\nรายละเอียด: ' + (s.withdrawReason || '-') + '\nวันที่บันทึก: ' + (s.withdrawDate || '-') + '\nผู้บันทึก: ' + (s.withdrawBy || '-'));
         };
         window.closeStudentWithdrawPopup = function(){ const el = document.getElementById('student-withdraw-popup'); if(el) el.remove(); };
+        window.__studentWithdrawSelectedType = '';
+        window.selectStudentWithdrawType = function(el, type){
+            window.__studentWithdrawSelectedType = type;
+            const wrap = el ? el.parentElement : null;
+            if(wrap){
+                Array.prototype.forEach.call(wrap.querySelectorAll('.schoolhub-withdraw-type-chip'), function(chip){
+                    chip.classList.remove('bg-rose-600','text-white','border-rose-600');
+                    chip.classList.add('bg-slate-100','text-slate-600','border-slate-200');
+                });
+            }
+            if(el){
+                el.classList.remove('bg-slate-100','text-slate-600','border-slate-200');
+                el.classList.add('bg-rose-600','text-white','border-rose-600');
+            }
+            const otherWrap = document.getElementById('student-withdraw-other-wrap');
+            const otherInput = document.getElementById('student-withdraw-other');
+            if(otherWrap) otherWrap.classList.toggle('hidden', type !== 'อื่นๆ');
+            if(type === 'อื่นๆ' && otherInput) setTimeout(function(){ otherInput.focus(); }, 30);
+            const errEl = document.getElementById('student-withdraw-type-error');
+            if(errEl) errEl.classList.add('hidden');
+        };
         window.confirmSetStudentWithdrawn = async function(id){
             const s = state.students.find(x => x.id === id); if(!s) return;
             window.closeStudentWithdrawPopup();
+            window.__studentWithdrawSelectedType = '';
             const popup = document.createElement('div');
             popup.id = 'student-withdraw-popup';
             popup.className = 'fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4 fade-in';
-            popup.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl"><div class="text-center mb-5"><div class="text-5xl text-rose-500 mb-3"><i class="fas fa-user-slash"></i></div><h3 class="text-2xl font-bold text-slate-800">ตั้งเป็นลาออก</h3><p class="text-slate-500 text-sm mt-2">'+escapeHTML(s.code || '')+' '+escapeHTML(s.name || '')+'</p></div><label class="block text-sm font-bold text-slate-700 mb-2">เหตุผลการลาออก <span class="text-rose-500">*</span></label><textarea id="student-withdraw-reason" rows="5" class="w-full border border-slate-200 rounded-2xl p-4 focus:ring-4 focus:ring-rose-100 focus:border-rose-400 outline-none resize-y" placeholder="กรอกเหตุผลการลาออก"></textarea><p id="student-withdraw-error" class="hidden text-rose-500 text-sm font-bold mt-2">กรุณากรอกเหตุผลการลาออก</p><div class="flex gap-3 mt-6"><button type="button" onclick="closeStudentWithdrawPopup()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3.5 rounded-2xl transition">ยกเลิก</button><button type="button" onclick="saveStudentWithdrawn(\''+id+'\')" class="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3.5 rounded-2xl transition">บันทึก</button></div></div>';
+            const typeOptions = ['ลาออก','ไม่มาเรียน','พักการเรียน','ย้ายโรงเรียน','อื่นๆ'];
+            const chipsHtml = typeOptions.map(function(t){
+                return '<button type="button" class="schoolhub-withdraw-type-chip bg-slate-100 text-slate-600 border-slate-200 border font-bold text-sm px-3.5 py-2 rounded-full transition" onclick="selectStudentWithdrawType(this,\''+t+'\')">'+t+'</button>';
+            }).join('');
+            popup.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl"><div class="text-center mb-5"><div class="text-5xl text-rose-500 mb-3"><i class="fas fa-user-slash"></i></div><h3 class="text-2xl font-bold text-slate-800">ตั้งเป็น...</h3><p class="text-slate-500 text-sm mt-2">'+escapeHTML(s.code || '')+' '+escapeHTML(s.name || '')+'</p></div>'+
+                '<label class="block text-sm font-bold text-slate-700 mb-2">เลือกหัวข้อ <span class="text-rose-500">*</span></label>'+
+                '<div class="flex flex-wrap gap-2">'+chipsHtml+'</div>'+
+                '<p id="student-withdraw-type-error" class="hidden text-rose-500 text-sm font-bold mt-2">กรุณาเลือกหัวข้อ</p>'+
+                '<div id="student-withdraw-other-wrap" class="hidden mt-3"><input id="student-withdraw-other" type="text" class="w-full border border-slate-200 rounded-2xl p-3.5 focus:ring-4 focus:ring-rose-100 focus:border-rose-400 outline-none" placeholder="ระบุหัวข้ออื่นๆ"></div>'+
+                '<label class="block text-sm font-bold text-slate-700 mb-2 mt-5">รายละเอียด <span class="text-rose-500">*</span></label>'+
+                '<textarea id="student-withdraw-reason" rows="5" class="w-full border border-slate-200 rounded-2xl p-4 focus:ring-4 focus:ring-rose-100 focus:border-rose-400 outline-none resize-y" placeholder="กรอกรายละเอียดเพิ่มเติม"></textarea>'+
+                '<p id="student-withdraw-error" class="hidden text-rose-500 text-sm font-bold mt-2">กรุณากรอกรายละเอียด</p>'+
+                '<div class="flex gap-3 mt-6"><button type="button" onclick="closeStudentWithdrawPopup()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3.5 rounded-2xl transition">ยกเลิก</button><button type="button" onclick="saveStudentWithdrawn(\''+id+'\')" class="w-1/2 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3.5 rounded-2xl transition">บันทึก</button></div></div>';
             document.body.appendChild(popup);
             setTimeout(function(){ var t=document.getElementById('student-withdraw-reason'); if(t) t.focus(); },50);
         };
         window.saveStudentWithdrawn = async function(id){
+            const typeErrEl = document.getElementById('student-withdraw-type-error');
+            const otherInput = document.getElementById('student-withdraw-other');
+            let type = window.__studentWithdrawSelectedType || '';
+            if(type === 'อื่นๆ'){
+                const otherVal = otherInput ? otherInput.value.trim() : '';
+                if(!otherVal){ if(otherInput) otherInput.focus(); return; }
+                type = otherVal;
+            }
+            if(!type){ if(typeErrEl) typeErrEl.classList.remove('hidden'); return; }
             const reasonEl = document.getElementById('student-withdraw-reason');
             const errEl = document.getElementById('student-withdraw-error');
             const reason = reasonEl ? reasonEl.value.trim() : '';
             if(!reason){ if(errEl) errEl.classList.remove('hidden'); if(reasonEl) reasonEl.focus(); return; }
             const idx = state.students.findIndex(s => s.id === id); if(idx < 0) return;
             state.students[idx].withdrawn = true;
-            state.students[idx].status = 'ลาออก';
+            state.students[idx].status = type;
+            state.students[idx].withdrawType = type;
             state.students[idx].withdrawReason = reason;
             state.students[idx].withdrawDate = new Date().toLocaleString('th-TH');
             state.students[idx].withdrawBy = window.getWithdrawnOperatorName();
             window.closeStudentWithdrawPopup();
             window.refreshWithdrawnStudentViews();
             await saveStateToDB();
-            showCustomAlert('สำเร็จ', 'ตั้งสถานะลาออกเรียบร้อย');
+            showCustomAlert('สำเร็จ', 'ตั้งสถานะเรียบร้อย');
         };
         window.cancelStudentWithdrawn = async function(id){
             const idx = state.students.findIndex(s => s.id === id); if(idx < 0) return;
-            window.showCustomConfirm('ยกเลิกสถานะลาออก', 'ยืนยันยกเลิกสถานะลาออกของนักเรียนคนนี้?', async () => {
+            window.showCustomConfirm('ยกเลิกสถานะ', 'ยืนยันยกเลิกสถานะของนักเรียนคนนี้?', async () => {
                 state.students[idx].withdrawn = false;
                 state.students[idx].status = '';
+                state.students[idx].withdrawType = '';
                 window.refreshWithdrawnStudentViews();
                 await saveStateToDB();
-                showCustomAlert('สำเร็จ', 'ยกเลิกสถานะลาออกเรียบร้อย');
+                showCustomAlert('สำเร็จ', 'ยกเลิกสถานะเรียบร้อย');
             });
         };
         window.toggleStudentWithdrawn = async (id) => {
