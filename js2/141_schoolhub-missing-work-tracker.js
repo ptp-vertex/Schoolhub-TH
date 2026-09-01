@@ -169,6 +169,7 @@
 
   var __lastData = [];
   var __activeRooms = null; // null = ทุกห้อง, Set = เฉพาะห้องที่เลือก
+  var __selectedIds = new Set(); // เลือกเฉพาะบางคนสำหรับส่งออก (ว่าง = ใช้ทุกคนที่กรองอยู่)
 
   function allRoomsInData() {
     var rooms = [];
@@ -216,6 +217,19 @@
     });
   }
 
+  function getExportData() {
+    var visible = getFilteredData();
+    if (!__selectedIds.size) return visible;
+    var picked = visible.filter(function (row) { return __selectedIds.has(String(row.student.id)); });
+    return picked.length ? picked : visible;
+  }
+
+  function pruneSelection() {
+    // ตัดคนที่ถูกเลือกไว้แต่ไม่อยู่ในข้อมูลปัจจุบันแล้วออก (เช่น เปลี่ยนวิชา/รีเฟรช)
+    var known = new Set(__lastData.map(function (row) { return String(row.student.id); }));
+    __selectedIds.forEach(function (id) { if (!known.has(id)) __selectedIds.delete(id); });
+  }
+
   function renderMissingWorkList() {
     var body = document.getElementById('schoolhub-missing-work-body');
     if (!body) return;
@@ -227,12 +241,21 @@
     }
 
     var cid = window.currentActiveCourseId;
-    var html = '';
+    var selectedInView = data.filter(function (row) { return __selectedIds.has(String(row.student.id)); }).length;
+    var allSelected = selectedInView === data.length;
+    var html = '<div class="schoolhub-missing-work-bulkbar">' +
+      '<label><input type="checkbox" id="schoolhub-missing-work-select-all" ' + (allSelected ? 'checked' : '') + ' onchange="toggleMissingWorkSelectAll(this.checked)"> เลือกทั้งหมดในรายการนี้</label>' +
+      '<span class="count">' + (selectedInView ? 'เลือกแล้ว ' + selectedInView + ' คน (ใช้เฉพาะคนที่เลือกตอนส่งออก)' : 'ยังไม่ได้เลือก · ส่งออกจะใช้ทุกคนที่แสดงอยู่') + '</span>' +
+      (selectedInView ? '<button type="button" onclick="toggleMissingWorkSelectAll(false)">ล้างการเลือก</button>' : '') +
+    '</div>';
     data.forEach(function (row) {
       var st = row.student;
-      html += '<div class="schoolhub-missing-work-card">' +
+      var sid = String(st.id);
+      var isSel = __selectedIds.has(sid);
+      html += '<div class="schoolhub-missing-work-card' + (isSel ? ' is-selected' : '') + '">' +
         '<div class="schoolhub-missing-work-card-head">' +
-          '<div class="schoolhub-missing-work-student"><span class="schoolhub-missing-work-code">' + esc(st.code || '') + '</span> ' + esc(st.name || '') + '</div>' +
+          '<input type="checkbox" class="schoolhub-missing-work-card-check" ' + (isSel ? 'checked' : '') + ' aria-label="เลือก ' + esc(st.name || '') + '" onchange="toggleMissingWorkStudentSelection(' + JSON.stringify(sid) + ', this.checked)">' +
+          '<div class="schoolhub-missing-work-student"><span class="schoolhub-missing-work-code">เลขที่ ' + esc(st.code || '-') + '</span> ' + esc(st.name || '') + '</div>' +
           '<div class="schoolhub-missing-work-room">ห้อง ' + esc(row.room) + '</div>' +
           '<div class="schoolhub-missing-work-count">ขาด ' + row.items.length + ' รายการ</div>' +
         '</div>' +
@@ -250,6 +273,22 @@
     });
     body.innerHTML = html;
   }
+
+  window.toggleMissingWorkStudentSelection = function (studentId, checked) {
+    var sid = String(studentId);
+    if (checked) __selectedIds.add(sid); else __selectedIds.delete(sid);
+    renderMissingWorkList();
+  };
+
+  window.toggleMissingWorkSelectAll = function (checked) {
+    var visible = getFilteredData();
+    if (checked) {
+      visible.forEach(function (row) { __selectedIds.add(String(row.student.id)); });
+    } else {
+      visible.forEach(function (row) { __selectedIds.delete(String(row.student.id)); });
+    }
+    renderMissingWorkList();
+  };
 
   window.renderMissingWorkTracker = function () {
     var cid = window.currentActiveCourseId;
@@ -271,6 +310,7 @@
     var totalStudents = __lastData.length;
     var totalItems = __lastData.reduce(function (n, r) { return n + r.items.length; }, 0);
     if (sub) sub.textContent = getCourseName(cid) + ' — ' + totalStudents + ' คนมีงานขาด รวม ' + totalItems + ' รายการ';
+    pruneSelection();
     renderRoomFilter();
     renderMissingWorkList();
   };
@@ -391,7 +431,7 @@
 
   window.exportMissingWorkFormat = function (format) {
     closeMissingWorkExportMenu();
-    var data = getFilteredData();
+    var data = getExportData();
     if (!data.length) {
       if (typeof window.showCustomAlert === 'function') window.showCustomAlert('ไม่มีข้อมูล', 'ไม่มีงานขาดให้ส่งออกในตอนนี้', true);
       return;
@@ -416,7 +456,7 @@
         }
         return;
       }
-      var data = getFilteredData();
+      var data = getExportData();
       var rows = buildMissingWorkRows(data);
       if (rows.length === 1) {
         if (typeof window.showCustomAlert === 'function') {
@@ -454,119 +494,59 @@
     return window.__schoolhubHtml2CanvasLoader;
   }
 
-  function imageExportHeader() {
-    var data = getFilteredData();
-    var courseName = getCourseName(window.currentActiveCourseId);
-    var totalItems = data.reduce(function (sum, row) { return sum + row.items.length; }, 0);
-    var el = document.createElement('div');
-    el.className = 'schoolhub-missing-work-image-sheet';
-    el.style.paddingBottom = '0';
-    el.innerHTML =
-      '<div class="schoolhub-missing-work-image-head">' +
-        '<div class="schoolhub-missing-work-image-brand"><span class="schoolhub-missing-work-image-brand-mark"><i class="fas fa-graduation-cap"></i></span><span>SchoolHub</span></div>' +
-        '<div class="schoolhub-missing-work-image-date">สร้างเมื่อ ' + esc(new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })) + '</div>' +
-        '<h1>รายงานงานที่ขาด</h1><p>' + esc(courseName) + ' · ' + data.length + ' คน · ' + totalItems + ' รายการ</p>' +
-        '<div class="schoolhub-missing-work-image-summary"><span>งานขาดรวม ' + totalItems + ' รายการ</span><span>ผู้เรียน ' + data.length + ' คน</span></div>' +
-      '</div>';
-    document.body.appendChild(el);
-    return el;
+  function esc2(v) { return esc(v); }
+
+  function studentInitial(name) {
+    var s = String(name || '').trim();
+    return s ? s.charAt(0) : '?';
   }
 
-  function imageExportCard(row) {
-    var st = row.student || {};
-    var el = document.createElement('div');
-    el.className = 'schoolhub-missing-work-image-sheet';
-    el.style.paddingTop = '14px'; el.style.paddingBottom = '0';
-    el.innerHTML =
-      '<div class="schoolhub-missing-work-image-list" style="margin-top:0">' +
-        '<section class="schoolhub-missing-work-image-card">' +
-          '<div class="schoolhub-missing-work-image-card-head"><div class="schoolhub-missing-work-image-student-block"><div class="schoolhub-missing-work-image-student">' + esc(st.name || '-') + '</div><div class="schoolhub-missing-work-image-code">' + esc(st.code || '-') + ' · ห้อง ' + esc(row.room || '-') + '</div></div><div class="schoolhub-missing-work-image-metrics"><span class="schoolhub-missing-work-image-metric schoolhub-missing-work-image-metric-missing"><b>ขาด ' + row.items.length + ' รายการ</b><small>จาก ' + (row.trackedWorkCount || '—') + ' งานที่ติดตาม</small></span></div></div>' +
-          '<div class="schoolhub-missing-work-image-table-head"><span>สัปดาห์</span><span>รายการงานที่ยังขาด</span><span>สถานะ</span></div>' +
-          '<div class="schoolhub-missing-work-image-items">' + row.items.map(function (item) {
-            return '<div class="schoolhub-missing-work-image-item"><span class="schoolhub-missing-work-image-week">สัปดาห์ ' + esc(item.week) + '</span><span class="schoolhub-missing-work-image-title">' + esc(item.title || '-') + (item.type === 'score' ? ' <small>(เต็ม ' + esc(item.maxScore) + ')</small>' : '') + '</span><span class="schoolhub-missing-work-image-status">' + esc(item.label || 'ยังไม่ส่ง') + '</span></div>';
-          }).join('') + '</div>' +
-        '</section>' +
-      '</div>';
-    document.body.appendChild(el);
-    return el;
-  }
-
-  function imageExportFooter() {
-    var el = document.createElement('div');
-    el.className = 'schoolhub-missing-work-image-sheet';
-    el.style.paddingTop = '14px';
-    el.innerHTML = '<div class="schoolhub-missing-work-image-foot">SchoolHub · รายการทั้งหมดตามตัวกรองที่เลือก</div>';
-    document.body.appendChild(el);
-    return el;
-  }
-
-  function loadJsPdf() {
-    if (window.jspdf && typeof window.jspdf.jsPDF === 'function') return Promise.resolve(window.jspdf.jsPDF);
-    if (window.__schoolhubJsPdfLoader) return window.__schoolhubJsPdfLoader;
-    window.__schoolhubJsPdfLoader = new Promise(function (resolve, reject) {
-      var script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-      script.async = true;
-      script.onload = function () { return window.jspdf && typeof window.jspdf.jsPDF === 'function' ? resolve(window.jspdf.jsPDF) : reject(new Error('ไม่พบตัวสร้าง PDF')); };
-      script.onerror = function () { reject(new Error('โหลดตัวสร้าง PDF ไม่สำเร็จ')); };
-      document.head.appendChild(script);
-    });
-    return window.__schoolhubJsPdfLoader;
-  }
-
-  function downloadCanvasAsPng(canvas, filename) {
-    return new Promise(function (resolve, reject) {
-      canvas.toBlob(function (blob) {
-        if (!blob) { reject(new Error('สร้างไฟล์ PNG ไม่สำเร็จ')); return; }
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-        resolve();
-      }, 'image/png');
-    });
-  }
-
-  async function downloadCanvasPagesAsPdf(canvases, filename) {
-    var JsPdf = await loadJsPdf();
-    var pdf = new JsPdf({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-    var pageWidth = 210;
-    (canvases || []).forEach(function (canvas, index) {
-      if (index > 0) pdf.addPage();
-      var imageData = canvas.toDataURL('image/png');
-      var imageHeight = canvas.height * pageWidth / canvas.width;
-      var pageHeight = 297;
-      var scale = Math.min(1, (pageHeight - 12) / imageHeight);
-      var renderWidth = pageWidth * scale;
-      var renderHeight = imageHeight * scale;
-      var x = (pageWidth - renderWidth) / 2;
-      var y = (pageHeight - renderHeight) / 2;
-      pdf.addImage(imageData, 'PNG', x, y, renderWidth, renderHeight, undefined, 'FAST');
-    });
-    pdf.save(filename);
-  }
-
-  function splitItemsForPdf(items) {
-    var pageSize = 16;
+  function splitItemsForPage(items) {
+    var pageSize = 12;
     var chunks = [];
     for (var i = 0; i < items.length; i += pageSize) chunks.push(items.slice(i, i + pageSize));
     return chunks.length ? chunks : [[]];
   }
 
-  function pdfExportPage(row, items, pageNumber, pageTotal) {
-    var courseName = getCourseName(window.currentActiveCourseId);
+  // สร้าง "หนึ่งหน้าเอกสาร" ต่อคนหนึ่งคน ใช้แบบเดียวกันทั้งไฟล์รูปภาพและ PDF
+  // เพื่อให้พรีวิวตรงกับไฟล์จริงเสมอ
+  function buildDocPage(row, items, pageNumber, pageTotal, courseName) {
     var st = row.student || {};
     var page = document.createElement('div');
-    page.className = 'schoolhub-missing-work-pdf-page';
+    page.className = 'schoolhub-mw-doc-page';
     page.setAttribute('aria-hidden', 'true');
     page.innerHTML =
-      '<div class="schoolhub-missing-work-pdf-kicker">SchoolHub · รายงานงานที่ขาด</div>' +
-      '<div class="schoolhub-missing-work-pdf-title-row"><div><h1>' + esc(courseName) + '</h1><p>สรุปรายบุคคล · สร้างเมื่อ ' + esc(new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })) + '</p></div><div class="schoolhub-missing-work-pdf-page-no">หน้า ' + pageNumber + '/' + pageTotal + '</div></div>' +
-      '<section class="schoolhub-missing-work-pdf-student"><div><h2>' + esc(st.name || '-') + '</h2><p>' + esc(st.code || '-') + ' · ห้อง ' + esc(row.room || '-') + '</p></div><div class="schoolhub-missing-work-pdf-stats"><span class="missing"><b>ขาด ' + row.items.length + ' รายการ</b><small>จาก ' + (row.trackedWorkCount || '—') + ' งานที่ติดตาม</small></span></div></section>' +
-      '<div class="schoolhub-missing-work-pdf-table"><div class="schoolhub-missing-work-pdf-table-head"><span>สัปดาห์</span><span>รายการงานที่ยังขาด</span><span>สถานะ</span></div>' + items.map(function (item) {
-        return '<div class="schoolhub-missing-work-pdf-row"><span class="week">สัปดาห์ ' + esc(item.week) + '</span><span class="title">' + esc(item.title || '-') + (item.type === 'score' ? ' <small>(เต็ม ' + esc(item.maxScore) + ')</small>' : '') + '</span><span class="status">' + esc(item.label || 'ยังไม่ส่ง') + '</span></div>';
-      }).join('') + '</div><div class="schoolhub-missing-work-pdf-foot">SchoolHub · รายงานตามตัวกรองที่เลือก</div>';
+      '<div class="schoolhub-mw-doc-topbar">' +
+        '<div class="schoolhub-mw-doc-brand"><span class="mark"><i class="fas fa-graduation-cap"></i></span>SchoolHub</div>' +
+        '<div class="schoolhub-mw-doc-meta">สร้างเมื่อ ' + esc(new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })) + '<br>หน้า ' + pageNumber + '/' + pageTotal + '</div>' +
+      '</div>' +
+      '<div class="schoolhub-mw-doc-hero">' +
+        '<div class="schoolhub-mw-doc-kicker">ใบแจ้งงานค้างส่ง · ' + esc(courseName) + '</div>' +
+        '<h1>รายงานงานที่ขาดรายบุคคล</h1>' +
+        '<div class="schoolhub-mw-doc-student">' +
+          '<div class="schoolhub-mw-doc-avatar">' + esc(studentInitial(st.name)) + '</div>' +
+          '<div class="schoolhub-mw-doc-student-info">' +
+            '<div class="schoolhub-mw-doc-student-name">' + esc(st.name || '-') + '</div>' +
+            '<div class="schoolhub-mw-doc-student-sub">เลขที่ <b>' + esc(st.code || '-') + '</b> · ห้อง ' + esc(row.room || '-') + '</div>' +
+          '</div>' +
+          '<div class="schoolhub-mw-doc-stats">' +
+            '<div class="schoolhub-mw-doc-stat"><b>' + row.items.length + '</b><small>ขาดทั้งหมด</small></div>' +
+            '<div class="schoolhub-mw-doc-stat"><b>' + (row.trackedWorkCount || '—') + '</b><small>งานที่ติดตาม</small></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="schoolhub-mw-doc-section-label">รายการงานที่ยังค้างส่ง' + (pageTotal > 1 ? ' (ต่อหน้าที่ ' + pageNumber + ')' : '') + '</div>' +
+      '<div class="schoolhub-mw-doc-table">' +
+        '<div class="schoolhub-mw-doc-table-head"><span>สัปดาห์</span><span>ชื่องาน</span><span>สถานะ</span></div>' +
+        (items.length ? items.map(function (item) {
+          return '<div class="schoolhub-mw-doc-row"><span class="week">สัปดาห์ ' + esc(item.week) + '</span><span class="title">' + esc(item.title || '-') + (item.type === 'score' ? '<small>(เต็ม ' + esc(item.maxScore) + ')</small>' : '') + '</span><span class="status">' + esc(item.label || 'ยังไม่ส่ง') + '</span></div>';
+        }).join('') : '<div class="schoolhub-mw-doc-row"><span></span><span class="title">ไม่มีรายการในหน้านี้</span><span></span></div>') +
+      '</div>' +
+      '<div class="schoolhub-mw-doc-sign">' +
+        '<div class="schoolhub-mw-doc-sign-line">ลงชื่อผู้ปกครอง/นักเรียน</div>' +
+        '<div class="schoolhub-mw-doc-sign-line">ลงชื่อครูประจำวิชา</div>' +
+      '</div>' +
+      '<div class="schoolhub-mw-doc-foot">SchoolHub · เอกสารฉบับนี้สร้างโดยระบบอัตโนมัติตามตัวกรองที่เลือกไว้</div>';
     document.body.appendChild(page);
     return page;
   }
@@ -575,8 +555,129 @@
     return (data || []).reduce(function (sum, row) { return sum + row.items.length; }, 0);
   }
 
+  function loadJsZip() {
+    if (typeof window.JSZip === 'function') return Promise.resolve(window.JSZip);
+    if (window.__schoolhubJsZipLoader) return window.__schoolhubJsZipLoader;
+    window.__schoolhubJsZipLoader = new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+      script.async = true;
+      script.onload = function () { return typeof window.JSZip === 'function' ? resolve(window.JSZip) : reject(new Error('ไม่พบตัวบีบอัดไฟล์')); };
+      script.onerror = function () { reject(new Error('โหลดตัวบีบอัดไฟล์ไม่สำเร็จ')); };
+      document.head.appendChild(script);
+    });
+    return window.__schoolhubJsZipLoader;
+  }
+
+  function safeFileFragment(text) {
+    return String(text || '').replace(/[\\/:*?"<>|]/g, '_').trim() || 'student';
+  }
+
+  // ---- พรีวิวก่อนดาวน์โหลด ----
+  var __mwPreviewState = null; // { format, pages: [{canvas, label}] }
+
+  function ensurePreviewModal() {
+    var modal = document.getElementById('schoolhub-mw-preview-modal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'schoolhub-mw-preview-modal';
+    modal.className = 'hidden';
+    modal.innerHTML =
+      '<div class="schoolhub-mw-preview-overlay" onclick="closeMissingWorkPreview()"></div>' +
+      '<div class="schoolhub-mw-preview-box">' +
+        '<div class="schoolhub-mw-preview-head">' +
+          '<div><h3 id="schoolhub-mw-preview-title">พรีวิวก่อนดาวน์โหลด</h3><p id="schoolhub-mw-preview-sub"></p></div>' +
+          '<button type="button" class="schoolhub-mw-preview-close" onclick="closeMissingWorkPreview()"><i class="fas fa-times"></i></button>' +
+        '</div>' +
+        '<div class="schoolhub-mw-preview-body" id="schoolhub-mw-preview-body"></div>' +
+        '<div class="schoolhub-mw-preview-foot">' +
+          '<button type="button" class="schoolhub-mw-preview-btn cancel" onclick="closeMissingWorkPreview()">ยกเลิก</button>' +
+          '<button type="button" class="schoolhub-mw-preview-btn confirm" id="schoolhub-mw-preview-confirm" onclick="confirmMissingWorkDownload()">ดาวน์โหลด</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openMissingWorkPreview(format, pages) {
+    var modal = ensurePreviewModal();
+    var title = document.getElementById('schoolhub-mw-preview-title');
+    var sub = document.getElementById('schoolhub-mw-preview-sub');
+    var body = document.getElementById('schoolhub-mw-preview-body');
+    if (title) title.textContent = format === 'pdf' ? 'พรีวิว PDF ก่อนดาวน์โหลด' : 'พรีวิวรูปภาพก่อนดาวน์โหลด';
+    if (sub) sub.textContent = pages.length + ' หน้า · ตรวจดูให้เรียบร้อยก่อนกดดาวน์โหลด';
+    if (body) {
+      body.innerHTML = '';
+      pages.forEach(function (p) {
+        var wrap = document.createElement('div');
+        wrap.className = 'schoolhub-mw-preview-page';
+        var img = document.createElement('img');
+        img.src = p.canvas.toDataURL('image/png');
+        img.alt = p.label;
+        var cap = document.createElement('div');
+        cap.className = 'schoolhub-mw-preview-page-label';
+        cap.textContent = p.label;
+        wrap.appendChild(img);
+        wrap.appendChild(cap);
+        body.appendChild(wrap);
+      });
+    }
+    modal.classList.remove('hidden');
+    if (typeof window.schoolhubBringPopupToFront === 'function') window.schoolhubBringPopupToFront(modal);
+  }
+
+  window.closeMissingWorkPreview = function () {
+    var modal = document.getElementById('schoolhub-mw-preview-modal');
+    if (modal) modal.classList.add('hidden');
+    __mwPreviewState = null;
+  };
+
+  window.confirmMissingWorkDownload = async function () {
+    if (!__mwPreviewState) return;
+    var confirmBtn = document.getElementById('schoolhub-mw-preview-confirm');
+    var previousText = confirmBtn ? confirmBtn.textContent : '';
+    try {
+      if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'กำลังดาวน์โหลด...'; }
+      var state = __mwPreviewState;
+      if (state.format === 'pdf') {
+        await downloadCanvasPagesAsPdf(state.pages.map(function (p) { return p.canvas; }), getMissingWorkSafeFileName('pdf'));
+      } else if (state.pages.length === 1) {
+        await downloadCanvasAsPng(state.pages[0].canvas, getMissingWorkSafeFileName('png'));
+      } else {
+        var JSZipCtor = await loadJsZip();
+        var zip = new JSZipCtor();
+        var used = {};
+        for (var i = 0; i < state.pages.length; i++) {
+          var p = state.pages[i];
+          var base = safeFileFragment(p.label);
+          var name = base + '.png';
+          var n = 2;
+          while (used[name]) { name = base + '_' + n + '.png'; n++; }
+          used[name] = true;
+          var dataUrl = p.canvas.toDataURL('image/png');
+          zip.file(name, dataUrl.split(',')[1], { base64: true });
+        }
+        var blob = await zip.generateAsync({ type: 'blob' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = getMissingWorkSafeFileName('zip');
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      }
+      if (typeof window.showCustomAlert === 'function') {
+        window.showCustomAlert('ส่งออกสำเร็จ', 'ดาวน์โหลด' + (state.format === 'pdf' ? ' PDF' : 'รูปภาพ') + 'เรียบร้อย (' + state.pages.length + ' หน้า)');
+      }
+      window.closeMissingWorkPreview();
+    } catch (e) {
+      console.error('[MissingWorkTracker] download error:', e);
+      if (typeof window.showCustomAlert === 'function') window.showCustomAlert('ดาวน์โหลดไม่สำเร็จ', 'กรุณาลองใหม่อีกครั้ง', true);
+    } finally {
+      if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = previousText || 'ดาวน์โหลด'; }
+    }
+  };
+
   async function exportMissingWorkDocument(format) {
-    var data = getFilteredData();
+    var data = getExportData();
     if (!data.length) {
       if (typeof window.showCustomAlert === 'function') window.showCustomAlert('ไม่มีข้อมูล', 'ไม่มีงานขาดให้ส่งออกในตอนนี้', true);
       return;
@@ -599,64 +700,34 @@
         ]);
         if (document.fonts.ready) await document.fonts.ready;
       }
-      updateMissingWorkExportProgress(button, 27.5, 'เตรียมฟอนต์แล้ว');
-      var canvases = [];
-      if (format === 'pdf') {
-        var pageSpecs = [];
-        data.forEach(function (row) { splitItemsForPdf(row.items).forEach(function (items) { pageSpecs.push({ row: row, items: items }); }); });
-        updateMissingWorkExportProgress(button, 40, 'กำลังจัดหน้า PDF');
-        for (var i = 0; i < pageSpecs.length; i++) {
-          var spec = pageSpecs[i];
-          var page = pdfExportPage(spec.row, spec.items, i + 1, pageSpecs.length);
-          sheets.push(page);
-          var renderPercent = 40 + ((i + 1) / pageSpecs.length) * 50;
-          updateMissingWorkExportProgress(button, renderPercent, 'กำลังวาดหน้า ' + (i + 1));
-          canvases.push(await html2canvas(page, { backgroundColor: '#ffffff', scale: 1.5, useCORS: true, logging: false, windowWidth: 794 }));
-          page.remove();
-        }
-      } else {
-        updateMissingWorkExportProgress(button, 35, 'กำลังเตรียมส่วนหัว');
-        var header = imageExportHeader();
-        sheets.push(header);
-        var headerCanvas = await html2canvas(header, { backgroundColor: '#f3f6fb', scale: 2, useCORS: true, logging: false, windowWidth: 1080 });
-        canvases.push(headerCanvas);
-        header.remove();
+      updateMissingWorkExportProgress(button, 25, 'เตรียมฟอนต์แล้ว');
 
-        for (var i = 0; i < data.length; i++) {
-          var renderPercent = 40 + ((i + 1) / data.length) * 50;
-          updateMissingWorkExportProgress(button, renderPercent, 'กำลังวาดคนที่ ' + (i + 1));
-          var card = imageExportCard(data[i]);
-          sheets.push(card);
-          canvases.push(await html2canvas(card, { backgroundColor: '#f3f6fb', scale: 2, useCORS: true, logging: false, windowWidth: 1080 }));
-          card.remove();
-        }
-
-        updateMissingWorkExportProgress(button, 92, 'กำลังเตรียมส่วนท้าย');
-        var footer = imageExportFooter();
-        sheets.push(footer);
-        var footerCanvas = await html2canvas(footer, { backgroundColor: '#f3f6fb', scale: 2, useCORS: true, logging: false, windowWidth: 1080 });
-        canvases.push(footerCanvas);
-        footer.remove();
-
-        updateMissingWorkExportProgress(button, 95, 'กำลังรวมภาพ');
-        var totalWidth = headerCanvas.width;
-        var totalHeight = canvases.reduce(function (sum, c) { return sum + c.height; }, 0);
-        var finalCanvas = document.createElement('canvas');
-        finalCanvas.width = totalWidth;
-        finalCanvas.height = totalHeight;
-        var ctx = finalCanvas.getContext('2d');
-        var currentY = 0;
-        canvases.forEach(function (c) {
-          ctx.drawImage(c, 0, currentY);
-          currentY += c.height;
+      var courseName = getCourseName(window.currentActiveCourseId);
+      var pageSpecs = [];
+      data.forEach(function (row) {
+        var chunks = splitItemsForPage(row.items);
+        chunks.forEach(function (items, idx) {
+          pageSpecs.push({ row: row, items: items, pageInStudent: idx + 1, pagesForStudent: chunks.length });
         });
-        canvases = [finalCanvas];
+      });
+
+      var previewPages = [];
+      for (var i = 0; i < pageSpecs.length; i++) {
+        var spec = pageSpecs[i];
+        var page = buildDocPage(spec.row, spec.items, i + 1, pageSpecs.length, courseName);
+        sheets.push(page);
+        var renderPercent = 25 + ((i + 1) / pageSpecs.length) * 65;
+        updateMissingWorkExportProgress(button, renderPercent, 'กำลังวาดหน้า ' + (i + 1) + '/' + pageSpecs.length);
+        var canvas = await html2canvas(page, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false, windowWidth: 794 });
+        page.remove();
+        var st = spec.row.student || {};
+        var label = esc2(st.name || 'นักเรียน') + ' · เลขที่ ' + esc2(st.code || '-') + (spec.pagesForStudent > 1 ? ' (หน้า ' + spec.pageInStudent + '/' + spec.pagesForStudent + ')' : '');
+        previewPages.push({ canvas: canvas, label: label });
       }
-      updateMissingWorkExportProgress(button, 98, 'กำลังเตรียมดาวน์โหลด');
-      if (format === 'pdf') await downloadCanvasPagesAsPdf(canvases, getMissingWorkSafeFileName('pdf'));
-      else await downloadCanvasAsPng(canvases[0], getMissingWorkSafeFileName('png'));
-      updateMissingWorkExportProgress(button, 100, 'สร้างเสร็จแล้ว');
-      if (typeof window.showCustomAlert === 'function') window.showCustomAlert('ส่งออกสำเร็จ', 'สร้าง ' + (format === 'pdf' ? 'PDF' : 'รูปภาพ') + ' จากรายการงานขาดทั้งหมด ' + totalMissingWorkItems(data) + ' รายการแล้ว');
+
+      updateMissingWorkExportProgress(button, 100, 'พร้อมพรีวิวแล้ว');
+      __mwPreviewState = { format: format, pages: previewPages };
+      openMissingWorkPreview(format, previewPages);
     } catch (e) {
       console.error('[MissingWorkTracker] document export error:', e);
       if (typeof window.showCustomAlert === 'function') window.showCustomAlert('ส่งออกไม่สำเร็จ', 'ไม่สามารถสร้างไฟล์ ' + (format === 'pdf' ? 'PDF' : 'รูปภาพ') + ' ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง', true);
