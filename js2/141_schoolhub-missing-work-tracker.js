@@ -179,6 +179,18 @@
   var __activeRooms = null; // null = ทุกห้อง, Set = เฉพาะห้องที่เลือก
   var __selectedIds = new Set(); // เลือกเฉพาะบางคนสำหรับส่งออก (ว่าง = ใช้ทุกคนที่กรองอยู่)
 
+  // นักเรียนที่นำเข้าจากไฟล์เก่าบางชุดอาจไม่มี id หรือมี id ซ้ำกัน
+  // จึงต้องใช้คีย์สำรองที่ยังแยกคนออกจากกันได้ ไม่เช่นนั้นเลือก 1 คนจะติดทุกคน
+  function studentSelectionKey(row) {
+    var st = (row && row.student) || {};
+    var room = String((row && row.room) || '').trim();
+    var id = st.id;
+    if (id !== undefined && id !== null && String(id).trim()) return 'id:' + String(id);
+    var code = String(st.code || '').trim();
+    if (code) return 'room-code:' + room + '|' + code;
+    return 'room-name-seat:' + room + '|' + String(st.name || '').trim() + '|' + String(row && row.seatNo != null ? row.seatNo : '');
+  }
+
   function allRoomsInData() {
     var rooms = [];
     __lastData.forEach(function (row) {
@@ -230,12 +242,12 @@
     if (!__selectedIds.size) return visible;
     // สำคัญ: ถ้าติ๊กเลือกคนไว้แล้ว ต้องใช้เฉพาะคนที่เลือกเท่านั้น ห้ามเงียบๆ สลับไปใช้ทุกคน
     // (เดิมพลาดตรงนี้ ทำให้เลือกคนเดียวแต่ระบบสร้างเอกสารให้ทุกคน)
-    return visible.filter(function (row) { return __selectedIds.has(String(row.student.id)); });
+    return visible.filter(function (row) { return __selectedIds.has(studentSelectionKey(row)); });
   }
 
   function pruneSelection() {
     // ตัดคนที่ถูกเลือกไว้แต่ไม่อยู่ในข้อมูลปัจจุบันแล้วออก (เช่น เปลี่ยนวิชา/รีเฟรช)
-    var known = new Set(__lastData.map(function (row) { return String(row.student.id); }));
+    var known = new Set(__lastData.map(studentSelectionKey));
     __selectedIds.forEach(function (id) { if (!known.has(id)) __selectedIds.delete(id); });
   }
 
@@ -250,7 +262,7 @@
     }
 
     var cid = window.currentActiveCourseId;
-    var selectedInView = data.filter(function (row) { return __selectedIds.has(String(row.student.id)); }).length;
+    var selectedInView = data.filter(function (row) { return __selectedIds.has(studentSelectionKey(row)); }).length;
     var allSelected = selectedInView === data.length;
     var html = '<div class="schoolhub-missing-work-bulkbar">' +
       '<label><input type="checkbox" id="schoolhub-missing-work-select-all" ' + (allSelected ? 'checked' : '') + ' onchange="toggleMissingWorkSelectAll(this.checked)"> เลือกทั้งหมดในรายการนี้</label>' +
@@ -259,12 +271,12 @@
     '</div>';
     data.forEach(function (row) {
       var st = row.student;
-      var sid = String(st.id);
+      var sid = studentSelectionKey(row);
       var isSel = __selectedIds.has(sid);
       html += '<div class="schoolhub-missing-work-card' + (isSel ? ' is-selected' : '') + '">' +
         '<div class="schoolhub-missing-work-card-head">' +
           '<input type="checkbox" class="schoolhub-missing-work-card-check" ' + (isSel ? 'checked' : '') + ' aria-label="เลือก ' + esc(st.name || '') + '" onchange="toggleMissingWorkStudentSelection(' + JSON.stringify(sid) + ', this.checked)">' +
-          '<div class="schoolhub-missing-work-student"><span class="schoolhub-missing-work-code">เลขที่ ' + esc(row.seatNo != null ? row.seatNo : '-') + '</span> ' + esc(st.name || '') + '</div>' +
+          '<div class="schoolhub-missing-work-student"><span class="schoolhub-missing-work-code">' + esc(row.seatNo != null ? row.seatNo : '-') + '</span> ' + esc(st.name || '') + '</div>' +
           '<div class="schoolhub-missing-work-room">ห้อง ' + esc(row.room) + '</div>' +
           '<div class="schoolhub-missing-work-count">ขาด ' + row.items.length + ' รายการ</div>' +
         '</div>' +
@@ -292,9 +304,9 @@
   window.toggleMissingWorkSelectAll = function (checked) {
     var visible = getFilteredData();
     if (checked) {
-      visible.forEach(function (row) { __selectedIds.add(String(row.student.id)); });
+      visible.forEach(function (row) { __selectedIds.add(studentSelectionKey(row)); });
     } else {
-      visible.forEach(function (row) { __selectedIds.delete(String(row.student.id)); });
+      visible.forEach(function (row) { __selectedIds.delete(studentSelectionKey(row)); });
     }
     renderMissingWorkList();
   };
@@ -536,7 +548,7 @@
           '<div class="schoolhub-mw-doc-avatar">' + esc(studentInitial(st.name)) + '</div>' +
           '<div class="schoolhub-mw-doc-student-info">' +
             '<div class="schoolhub-mw-doc-student-name">' + esc(st.name || '-') + '</div>' +
-            '<div class="schoolhub-mw-doc-student-sub">เลขที่ <b>' + esc(row.seatNo != null ? row.seatNo : '-') + '</b> · ห้อง ' + esc(row.room || '-') + '</div>' +
+            '<div class="schoolhub-mw-doc-student-sub"><b>' + esc(row.seatNo != null ? row.seatNo : '-') + '</b> · ห้อง ' + esc(row.room || '-') + '</div>' +
           '</div>' +
           '<div class="schoolhub-mw-doc-stats">' +
             '<div class="schoolhub-mw-doc-stat"><b>' + row.items.length + '</b><small>ขาดทั้งหมด</small></div>' +
@@ -730,7 +742,7 @@
         var canvas = await html2canvas(page, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false, windowWidth: 794 });
         page.remove();
         var st = spec.row.student || {};
-        var label = esc2(st.name || 'นักเรียน') + ' · เลขที่ ' + esc2(spec.row.seatNo != null ? spec.row.seatNo : '-') + (spec.pagesForStudent > 1 ? ' (หน้า ' + spec.pageInStudent + '/' + spec.pagesForStudent + ')' : '');
+        var label = esc2(st.name || 'นักเรียน') + ' · ' + esc2(spec.row.seatNo != null ? spec.row.seatNo : '-') + (spec.pagesForStudent > 1 ? ' (หน้า ' + spec.pageInStudent + '/' + spec.pagesForStudent + ')' : '');
         previewPages.push({ canvas: canvas, label: label });
       }
 
