@@ -611,11 +611,20 @@
             }
             const otherWrap = document.getElementById('student-withdraw-other-wrap');
             const otherInput = document.getElementById('student-withdraw-other');
-            if(otherWrap) otherWrap.classList.toggle('hidden', type !== 'อื่นๆ');
+            if(otherWrap) otherWrap.classList.toggle('is-open', type === 'อื่นๆ');
             if(type === 'อื่นๆ' && otherInput) setTimeout(function(){ otherInput.focus(); }, 30);
             const errEl = document.getElementById('student-withdraw-type-error');
             if(errEl) errEl.classList.add('hidden');
         };
+        if(!document.getElementById('schoolhub-withdraw-other-slide-style')){
+            const __wStyle = document.createElement('style');
+            __wStyle.id = 'schoolhub-withdraw-other-slide-style';
+            __wStyle.textContent = '.schoolhub-withdraw-other-slide{display:inline-block;overflow:hidden;max-width:0;opacity:0;margin-left:0;transition:max-width .28s cubic-bezier(.4,0,.2,1),opacity .22s ease,margin-left .28s cubic-bezier(.4,0,.2,1);vertical-align:middle;}'+
+                '.schoolhub-withdraw-other-slide.is-open{max-width:260px;opacity:1;margin-left:.25rem;}'+
+                '.schoolhub-withdraw-other-slide input{min-width:220px;}'+
+                '@media (max-width:480px){.schoolhub-withdraw-other-slide.is-open{max-width:100%;width:100%;margin-left:0;margin-top:.5rem;}}';
+            document.head.appendChild(__wStyle);
+        }
         window.confirmSetStudentWithdrawn = async function(id){
             const s = state.students.find(x => x.id === id); if(!s) return;
             window.closeStudentWithdrawPopup();
@@ -629,9 +638,10 @@
             }).join('');
             popup.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl"><div class="text-center mb-5"><div class="text-5xl text-rose-500 mb-3"><i class="fas fa-user-slash"></i></div><h3 class="text-2xl font-bold text-slate-800">ตั้งเป็น...</h3><p class="text-slate-500 text-sm mt-2">'+escapeHTML(s.code || '')+' '+escapeHTML(s.name || '')+'</p></div>'+
                 '<label class="block text-sm font-bold text-slate-700 mb-2">เลือกหัวข้อ <span class="text-rose-500">*</span></label>'+
-                '<div class="flex flex-wrap gap-2">'+chipsHtml+'</div>'+
+                '<div class="flex flex-wrap items-center gap-2">'+chipsHtml+
+                '<div id="student-withdraw-other-wrap" class="schoolhub-withdraw-other-slide"><input id="student-withdraw-other" type="text" class="w-full border border-slate-200 rounded-2xl p-2.5 focus:ring-4 focus:ring-rose-100 focus:border-rose-400 outline-none text-sm" placeholder="ระบุหัวข้ออื่นๆ"></div>'+
+                '</div>'+
                 '<p id="student-withdraw-type-error" class="hidden text-rose-500 text-sm font-bold mt-2">กรุณาเลือกหัวข้อ</p>'+
-                '<div id="student-withdraw-other-wrap" class="hidden mt-3"><input id="student-withdraw-other" type="text" class="w-full border border-slate-200 rounded-2xl p-3.5 focus:ring-4 focus:ring-rose-100 focus:border-rose-400 outline-none" placeholder="ระบุหัวข้ออื่นๆ"></div>'+
                 '<label class="block text-sm font-bold text-slate-700 mb-2 mt-5">รายละเอียด <span class="text-rose-500">*</span></label>'+
                 '<textarea id="student-withdraw-reason" rows="5" class="w-full border border-slate-200 rounded-2xl p-4 focus:ring-4 focus:ring-rose-100 focus:border-rose-400 outline-none resize-y" placeholder="กรอกรายละเอียดเพิ่มเติม"></textarea>'+
                 '<p id="student-withdraw-error" class="hidden text-rose-500 text-sm font-bold mt-2">กรุณากรอกรายละเอียด</p>'+
@@ -663,6 +673,9 @@
             window.closeStudentWithdrawPopup();
             window.refreshWithdrawnStudentViews();
             await saveStateToDB();
+            // กันเคสข้อมูลเรียลไทม์ที่อาจแทรกมาระหว่างบันทึกแล้วทำให้สถานะ
+            // ที่เพิ่งตั้งดูเหมือนไม่เปลี่ยน (เมนู "..." ยังโชว์ตัวเลือกเดิม)
+            window.refreshWithdrawnStudentViews();
             showCustomAlert('สำเร็จ', 'ตั้งสถานะเรียบร้อย');
         };
         window.cancelStudentWithdrawn = async function(id){
@@ -671,8 +684,14 @@
                 state.students[idx].withdrawn = false;
                 state.students[idx].status = '';
                 state.students[idx].withdrawType = '';
+                state.students[idx].withdrawReason = '';
+                state.students[idx].withdrawDate = '';
+                state.students[idx].withdrawBy = '';
                 window.refreshWithdrawnStudentViews();
                 await saveStateToDB();
+                // กันเคสข้อมูลเรียลไทม์ที่อาจแทรกมาระหว่างบันทึกแล้วทำให้สถานะ
+                // ที่เพิ่งยกเลิกดูเหมือนไม่เปลี่ยน (เมนู "..." ยังโชว์ตัวเลือกเดิม)
+                window.refreshWithdrawnStudentViews();
                 showCustomAlert('สำเร็จ', 'ยกเลิกสถานะเรียบร้อย');
             });
         };
